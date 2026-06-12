@@ -6,8 +6,10 @@ import logging
 import os
 import time
 import requests
+import json
 import google.auth
 import google.auth.transport.requests
+from google.oauth2 import service_account
 from PIL import Image
 import numpy as np
 from deepface import DeepFace
@@ -567,13 +569,20 @@ def send_campaign_email(to_email, campaign_title, campaign_description, image_ur
 _vertex_credentials = None
 
 def get_vertex_access_token():
-    """Get Google Cloud access token using Application Default Credentials (no subprocess)."""
     global _vertex_credentials
     try:
         if _vertex_credentials is None:
-            _vertex_credentials, _ = google.auth.default(
-                scopes=['https://www.googleapis.com/auth/cloud-platform']
-            )
+            creds_json = os.getenv('GOOGLE_APPLICATION_CREDENTIALS_JSON')
+            if creds_json:
+                creds_dict = json.loads(creds_json)
+                _vertex_credentials = service_account.Credentials.from_service_account_info(
+                    creds_dict,
+                    scopes=['https://www.googleapis.com/auth/cloud-platform']
+                )
+            else:
+                _vertex_credentials, _ = google.auth.default(
+                    scopes=['https://www.googleapis.com/auth/cloud-platform']
+                )
         auth_req = google.auth.transport.requests.Request()
         _vertex_credentials.refresh(auth_req)
         return _vertex_credentials.token
