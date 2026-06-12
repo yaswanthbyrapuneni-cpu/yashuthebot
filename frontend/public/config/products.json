@@ -1,0 +1,174 @@
+[
+  {
+    "id": "pendant",
+    "name": "Floral Gold Pendant",
+    "detector": "face_neck",
+    "asset": "/assets/products/pendant/floral_pendant.jpg",
+    "anchors": ["neck_base", "left_clavicle", "right_clavicle"],
+    "ui": {"allowScale": true, "allowRotate": false},
+    "metadata": {
+      "type": "pendant",
+      "material": "gold",
+      "test_mode": true
+    }
+  },
+  {
+    "id": "bracelet",
+    "name": "Classic Diamond Bracelet",
+    "detector": "hand_wrist",
+    "asset": "/assets/products/bracelet/diamond_bracelet.jpg",
+    "anchors": ["wrist"],
+    "ui": {"allowScale": true, "allowRotate": true},
+    "metadata": {
+      "style": "flexible",
+      "material": "gold",
+      "test_mode": true
+    }
+  },
+  {
+    "id": "bangles",
+    "name": "Royal Gold Bangles Set",
+    "detector": "hand_wrist",
+    "asset": "/assets/products/bangles/gold_bangles.jpg",
+    "anchors": ["left_wrist", "right_wrist"],
+    "ui": {"allowScale": true, "allowRotate": true, "allowDualWrist": true},
+    "metadata": {
+      "count": 2,
+      "material": "22k gold",
+      "test_mode": true,
+      "symmetrical": true
+    }
+  },
+  {
+    "id": "mathapatti",
+    "name": "Traditional Mathapatti",
+    "detector": "face",
+    "asset": "/assets/products/mathapatti/mathapatti.jpg",
+    "anchors": ["forehead_center", "temple_left", "temple_right"],
+    "ui": {"allowScale": true, "allowRotate": false},
+    "metadata": {
+      "type": "forehead_ornament",
+      "material": "gold",
+      "test_mode": true
+    }
+  },
+  {
+    "id": "haram",
+    "name": "Traditional Gold Haram",
+    "detector": "face_neck",
+    "asset": "/assets/products/necklace/haram.jpg",
+    "anchors": ["neck_base", "left_clavicle", "right_clavicle", "chest_center"],
+    "ui": {"allowScale": true, "allowRotate": false},
+    "metadata": {
+      "type": "long_necklace",
+      "material": "gold",
+      "test_mode": true
+    }
+  },
+  {
+    "id": "chain",
+    "name": "Simple Gold Chain",
+    "detector": "face_neck",
+    "asset": "/assets/products/chains/chain.jpg",
+    "anchors": ["neck_base", "left_clavicle", "right_clavicle"],
+    "ui": {"allowScale": true, "allowRotate": false},
+    "metadata": {
+      "type": "chain",
+      "material": "gold",
+      "test_mode": true
+    }
+  },
+  {
+    "id": "nosepin",
+    "name": "Minimal Diamond Nosepin",
+    "detector": "face",
+    "asset": "/assets/products/nose-pin/diamond_nosepin.jpg",
+    "anchors": ["nose_tip"],
+    "ui": {"allowScale": true, "allowRotate": false},
+    "metadata": {
+      "type": "stud",
+      "material": "platinum",
+      "test_mode": true
+    }
+  },
+  {
+    "id": "necklace",
+    "name": "Necklace",
+    "detector": "face_neck",
+    "asset": "/assets/products/necklace/necklace.png",
+    "anchors": ["left_clavicle", "right_clavicle", "neck_base"],
+    "ui": {"allowScale": true, "allowRotate": false}
+  },
+  {
+    "id": "earrings",
+    "name": "Earrings",
+    "detector": "face_ears",
+    "asset": "/assets/products/earrings/earrings.png",
+    "anchors": ["left_ear", "right_ear"],
+    "ui": {"allowScale": true, "allowRotate": true}
+  },
+  {
+    "id": "rings",
+    "name": "Ring",
+    "detector": "hand_fingers",
+    "asset": "/assets/products/rings/ring.png",
+    "anchors": ["finger_tip"],
+    "ui": {"allowScale": true, "allowRotate": false, "allowMulti": true}
+  },
+  {
+    "id": "bracelet",
+    "name": "Bracelet",
+    "detector": "hand_wrist",
+    "asset": "/assets/products/bracelet/bracelet.png",
+    "anchors": ["wrist"],
+    "ui": {"allowScale": true, "allowRotate": true}
+  },
+  {
+    "id": "hipbelt",
+    "name": "Waist Belt",
+    "detector": "pose_hips",
+    "asset": "/assets/products/hipbelt/hipbelt.png",
+    "anchors": ["left_hip", "right_hip", "waist_center"],
+    "ui": {"allowScale": true, "allowRotate": true}
+  },
+  {
+    "id": "chains",
+    "name": "Traditional Gold Chain",
+    "detector": "face_neck",
+    "asset": "/assets/products/chains/gold_chain.jpg",
+    "anchors": ["neck_base", "left_clavicle", "right_clavicle"],
+    "ui": {"allowScale": true, "allowRotate": false},
+    "metadata": {
+      "type": "chain",
+      "material": "gold",
+      "test_mode": true
+    }
+  },
+  {
+    "id": "rings",
+    "name": "Classic Gold Ring",
+    "detector": "hand_fingers",
+    "asset": "/assets/products/rings/gold_ring.jpg",
+    "anchors": ["finger_tip"],
+    "ui": {"allowScale": true, "allowRotate": true},
+    "metadata": {
+      "type": "ring",
+      "material": "gold",
+      "test_mode": true
+    }
+  },
+  {
+    "id": "earrings",
+    "name": "Traditional Gold Earrings",
+    "detector": "face_ears",
+    "asset": "/assets/products/earrings/gold_earrings.jpg",
+    "anchors": ["left_ear", "right_ear"],
+    "ui": {"allowScale": true, "allowRotate": true},
+    "metadata": {
+      "type": "earrings",
+      "material": "gold",
+      "test_mode": true,
+      "symmetrical": true
+    }
+  }
+]

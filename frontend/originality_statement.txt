@@ -1,0 +1,17 @@
+Originality Assessment Statement
+
+Project: Virtual Jewelry Try-On System
+Version: 1.2.0
+
+To whom it may concern (NRDC):
+
+I have reviewed the codebase located at the project root. The application-specific source code contained in the `src/` directory and the serverless functions under `supabase/functions/` were authored for this project and represent original work by the applicant, except where explicitly noted below.
+
+Third-party components and libraries are used throughout the project to provide UI primitives, build tooling, and machine learning functionality. These third-party components include (non-exhaustive): React, Vite, TailwindCSS, Radix UI, TensorFlow.js, MediaPipe Tasks Vision, and Supabase SDKs. The applicant does not claim ownership of these external libraries.
+
+I recommend including copies of the LICENSE files for all third-party dependencies when submitting to NRDC. Also, remove or redact any secret keys or credentials from submitted materials (e.g., environment defaults in `vite.config.ts`).
+
+Signed (placeholder):
+
+<APPLICANT_FULL_NAME>
+Date: 2025-11-11

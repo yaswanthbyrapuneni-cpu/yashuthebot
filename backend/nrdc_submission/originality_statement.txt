@@ -1,0 +1,17 @@
+Originality Statement for NRDC submission
+
+Project: <project_name>
+Version: <project_version>
+Author: <applicant_full_name>
+
+I hereby declare that the custom source code authored by me and included in this submission consists primarily of integration and glue code that exposes a REST API, performs input decoding and simple mapping logic. The files considered original by me are:
+
+- app.py  (Flask application endpoints, image decoding pipeline, emotion mapping)
+- test_live.py (demo harness that captures images and calls the API)
+
+Third-party libraries and components (not claimed as original): deepface, flask, flask-cors, pillow, numpy, opencv-python-headless, tf-keras. I will include copies or references to their license texts in the NRDC submission package.
+
+I affirm that I am the original author of the listed custom files and that any material taken from third-party sources has been identified and will be accompanied by the appropriate license or attribution.
+
+Signed: <applicant_full_name>
+Date: <date>

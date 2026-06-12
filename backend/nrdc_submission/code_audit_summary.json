@@ -1,0 +1,109 @@
+{
+  "project": {
+    "name": "<project_name>",
+    "version": "<project_version>",
+    "author": "<applicant_full_name>",
+    "organization": "NRDC",
+    "submission_purpose": "Intellectual Property Registration"
+  },
+  "summary": {
+    "languages": ["Python"],
+    "frameworks": ["Flask"],
+    "primary_libraries_detected": [
+      "deepface",
+      "flask",
+      "flask-cors",
+      "pillow",
+      "numpy",
+      "opencv-python-headless",
+      "tf-keras"
+    ],
+    "files_analyzed": [
+      "app.py",
+      "requirements.txt",
+      "test_live.py"
+    ]
+  },
+  "file_metadata": {
+    "note": "Exact SHA-256, sizes and line counts were not computed by the auditor in this run. Run the included verification snippet in `nrdc_central_code_document.md` to generate verifiable checksums and update these entries.",
+    "files": {
+      "app.py": {
+        "path": "app.py",
+        "sha256": "TO_BE_COMPUTED",
+        "size_bytes": "TO_BE_COMPUTED",
+        "lines": "TO_BE_COMPUTED"
+      },
+      "requirements.txt": {
+        "path": "requirements.txt",
+        "sha256": "TO_BE_COMPUTED",
+        "size_bytes": "TO_BE_COMPUTED",
+        "lines": "TO_BE_COMPUTED"
+      },
+      "test_live.py": {
+        "path": "test_live.py",
+        "sha256": "TO_BE_COMPUTED",
+        "size_bytes": "TO_BE_COMPUTED",
+        "lines": "TO_BE_COMPUTED"
+      }
+    }
+  },
+  "architecture": {
+    "type": "Single-process HTTP microservice",
+    "components": [
+      {
+        "name": "Flask API (app.py)",
+        "responsibilities": [
+          "Expose /health and /detect-emotion endpoints",
+          "Decode base64 images, convert to RGB and numpy arrays",
+          "Call DeepFace.analyze for emotion detection",
+          "Map DeepFace emotions to 3 categories (happy, neutral, sad)",
+          "Return JSON result with emotion, confidence and timing"
+        ]
+      },
+      {
+        "name": "Integration test / demo (test_live.py)",
+        "responsibilities": [
+          "Capture frames from local webcam using OpenCV",
+          "Encode frames as base64 and call the /detect-emotion endpoint",
+          "Display results and simple timing metrics"
+        ]
+      }
+    ],
+    "data_flow": [
+      "1. Client captures or sends base64-encoded image",
+      "2. Server decodes base64 to bytes -> PIL Image -> numpy array",
+      "3. Server passes numpy array to DeepFace.analyze(actions=['emotion'])",
+      "4. DeepFace returns emotion scores; server maps and computes confidence",
+      "5. Server returns JSON to client"
+    ]
+  },
+  "third_party_notice": {
+    "detected_packages": [
+      {"name": "deepface", "impact": "Major - core ML functionality provided by this library"},
+      {"name": "flask", "impact": "Web framework used for API endpoints"},
+      {"name": "flask-cors", "impact": "CORS helper middleware"},
+      {"name": "pillow", "impact": "Image decoding and conversion"},
+      {"name": "numpy", "impact": "Array representation passed to DeepFace"},
+      {"name": "opencv-python-headless", "impact": "Detector backend and client demo uses OpenCV"},
+      {"name": "tf-keras", "impact": "Machine learning backend likely required by DeepFace"}
+    ],
+    "license_verification_recommendation": "The auditor recommends the applicant verify each dependency's license and include exact license files/attributions in the submission. Potentially relevant licenses include MIT, Apache-2.0, BSD-family; DO NOT assume a license without checking the project's repo or installed package metadata."
+  },
+  "code_quality_and_structure": {
+    "observations": [
+      "Code is small and focused: app.py contains 1 Flask app with 2 endpoints and clear responsibilities",
+      "Error handling uses broad exception catch in /detect-emotion which returns a neutral default — consider returning appropriate error codes for some failure modes",
+      "No formal package or module structure (single-file service) — acceptable for lightweight service but impacts reusability and testing",
+      "Test/demo script (test_live.py) is a helpful integration/demo but not an automated unit test"
+    ],
+    "recommendations": [
+      "Add per-dependency license files or a consolidated NOTICE and LICENSE summary",
+      "Consider adding unit tests for error paths and a requirements lock (e.g., pip freeze or pip-tools) to fix versions",
+      "Replace broad exception handling with more specific catches to improve observability"
+    ]
+  },
+  "originality_assessment": {
+    "conclusion": "The codebase primarily integrates third-party ML and web libraries. The original, custom-authored portions are the glue code (HTTP endpoints, image decoding pipeline, emotion mapping) in `app.py` and the demo harness `test_live.py`. The substantial ML inference logic and models are provided by the DeepFace project and its ML backends.",
+    "advice": "For NRDC submission, claim authorship on the original glue code and documentation. Explicitly list third-party components and include their licenses and source URLs in the submission to make the boundary between original and third-party code clear."
+  }
+}

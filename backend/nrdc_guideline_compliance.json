@@ -1,0 +1,30 @@
+{
+  "nrdc_sections": {
+    "1_Abstract_and_Purpose": {
+      "included": true,
+      "notes": "Abstract and purpose provided in nrdc_central_code_document.md"
+    },
+    "2_System_Architecture_and_Modules": {
+      "included": true,
+      "notes": "High-level architecture and component responsibilities documented"
+    },
+    "3_Functional_Description": {
+      "included": true,
+      "notes": "Detailed data flow and endpoint behavior included"
+    },
+    "4_Source_Code_Metadata_and_Originality": {
+      "included": true,
+      "notes": "Source files listed and an external verification snippet provided; exact checksums need to be generated and embedded by the applicant or with auditor permission"
+    },
+    "5_Author_and_Ownership_Declaration": {
+      "included": true,
+      "notes": "Declaration template provided in nrdc_central_code_document.md and originality_statement.txt"
+    }
+  },
+  "compliance_summary": "All NRDC guideline sections have coverage in the central document. To finalize compliance, the applicant should compute and embed exact file checksums, include third-party license texts or references, and sign the author declaration in the MD and TXT artifacts provided.",
+  "blocking_items_for_submission": [
+    "Exact file checksums and sizes (see verification snippet)",
+    "Copies or clear references to each third-party dependency license",
+    "Signed author declaration with date"
+  ]
+}

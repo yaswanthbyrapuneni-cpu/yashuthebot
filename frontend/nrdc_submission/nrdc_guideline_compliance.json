@@ -1,0 +1,43 @@
+{
+  "guideline_source": "NRDC Copyright Application Guidelines (Software Section)",
+  "sections_required": [
+    "1. Abstract and Purpose of Software",
+    "2. System Architecture and Modules",
+    "3. Functional Description",
+    "4. Source Code Metadata and Originality",
+    "5. Author and Ownership Declaration"
+  ],
+  "compliance": {
+    "1": {
+      "present": true,
+      "file": "nrdc_central_code_document.md",
+      "notes": "Abstract and purpose included in top of document"
+    },
+    "2": {
+      "present": true,
+      "file": "nrdc_central_code_document.md",
+      "notes": "Architecture and module mapping included; recommended to attach diagrams if desired."
+    },
+    "3": {
+      "present": true,
+      "file": "nrdc_central_code_document.md",
+      "notes": "Functional description included. Add sample user flows or test cases to strengthen submission."
+    },
+    "4": {
+      "present": true,
+      "file": "code_audit_summary.json",
+      "notes": "Source code metadata, dependency list and originality observations included. Recommend attaching full dependency licenses."
+    },
+    "5": {
+      "present": false,
+      "file": "nrdc_central_code_document.md",
+      "notes": "Author declaration template present but applicant full legal name and signed declaration needed before final submission."
+    }
+  },
+  "recommended_next_steps": [
+    "Insert applicant full legal name and sign the Author Declaration (section 5).",
+    "Collect and attach LICENSE files for all third-party dependencies; include copies or links to external libraries referenced by Deno imports.",
+    "Redact or remove environment secrets (e.g., SUPABASE keys) from any files included in external submission.",
+    "Optionally produce a compressed archive containing only applicant-authored source and the above documents for NRDC upload."
+  ]
+}

@@ -1,0 +1,13 @@
+project_id = "aeynylzqkojwakxgwuzn"
+
+[functions.whatsapp-webhook]
+verify_jwt = false
+
+[functions.track-visitor]
+verify_jwt = false
+
+[functions.track-try-on]
+verify_jwt = false
+
+[functions.get-analytics]
+verify_jwt = false

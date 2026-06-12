@@ -1,0 +1,62 @@
+# Dependencies
+node_modules/
+frontend/node_modules/
+
+# Build output
+frontend/dist/
+frontend/.vite/
+
+# Environment files - NEVER commit these (contain API keys)
+.env
+.env.local
+.env.*.local
+backend/.env
+frontend/.env
+
+# Python
+__pycache__/
+*.py[cod]
+*.pyo
+*.pyd
+.Python
+backend/venv/
+backend/env/
+*.egg-info/
+
+# Test artifacts
+test_*.mp3
+test_output.mp3
+test_elevenlabs.py
+
+# Large media files
+frontend/public/ads/*.mp4
+frontend/src/assets/ad.mp4
+frontend/src/assets/instructions.mp4
+
+# Separate/copy project folders
+v4-Make*/
+frontend copy/
+
+# Clothing try-on test images in root
+ctshirt.webp
+hoodie.jpg
+hoodie1.png
+jacket.jpg
+kurthi.jpg
+kurthi1.png
+pants.webp
+pants1.png
+saree.jpg
+saree1.png
+tshirt1.png
+wts.webp
+wts1.png
+chain.png
+
+# OS files
+.DS_Store
+Thumbs.db
+
+# IDE
+.vscode/
+.idea/
