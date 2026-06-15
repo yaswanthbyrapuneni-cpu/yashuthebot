@@ -58,7 +58,7 @@ import banner1 from './assets/banner.png';
 import banner2 from './assets/banner2.png';
 import banner3 from './assets/banner3.png';
 import banner4 from './assets/banner4.png';
-import instructionsVideo from './assets/instructions.mp4';
+const instructionsVideo = '';
 import imgNecklace205 from "./assets/output.png";
 import imgNecklace206 from "./assets/try1.png";
 import imgNecklace207 from "./assets/qwe1.png";
