@@ -48,13 +48,13 @@ Copy `.env.example` and rename it to `.env`:
 copy .env.example .env
 ```
 
-Open `.env` and replace `paste_the_full_json_key_here` with the JSON key you received from your project lead. It looks like this:
+The `.env` file already has the correct values — no changes needed.
 
-```
-GOOGLE_APPLICATION_CREDENTIALS_JSON={"type":"service_account","project_id":"...","private_key":"..."}
-```
-
-Paste the entire JSON on a single line. Do not add quotes around it.
+> **Note:** Your Gmail account must be added to the GCP project by the project lead before you can use Vertex AI. Ask them to run:
+> ```
+> gcloud projects add-iam-policy-binding project-bc9ba853-ede2-43c2-a3e --member="user:your@gmail.com" --role="roles/aiplatform.user"
+> ```
+> Then run `gcloud auth application-default login` on your machine once.
 
 Install Python packages:
 
