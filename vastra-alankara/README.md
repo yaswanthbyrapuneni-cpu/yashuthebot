@@ -50,9 +50,7 @@ copy .env.example .env
 
 The `.env` file already has the correct values — no changes needed.
 
-> **Note:** Your Gmail account must be added to the GCP project by the project lead before you can use Vertex AI. Ask them to run:
-> ```
-> gcloud projects add-iam-policy-binding project-bc9ba853-ede2-43c2-a3e --member="user:your@gmail.com" --role="roles/aiplatform.user"
+"
 > ```
 > Then run `gcloud auth application-default login` on your machine once.
 
