@@ -42,16 +42,19 @@ Open a terminal and go to the backend folder:
 cd vastra-alankara/backend
 ```
 
-Create a file called `.env` in that folder with this content:
+Copy `.env.example` and rename it to `.env`:
 
-```
-VERTEX_PROJECT_ID=project-bc9ba853-ede2-43c2-a3e
-VERTEX_REGION=us-central1
-PORT=5000
-GOOGLE_APPLICATION_CREDENTIALS_JSON=<paste the key JSON here>
+```bash
+copy .env.example .env
 ```
 
-> You will receive the value for `GOOGLE_APPLICATION_CREDENTIALS_JSON` from your project lead. It is a long JSON string — paste the entire thing on one line.
+Open `.env` and replace `paste_the_full_json_key_here` with the JSON key you received from your project lead. It looks like this:
+
+```
+GOOGLE_APPLICATION_CREDENTIALS_JSON={"type":"service_account","project_id":"...","private_key":"..."}
+```
+
+Paste the entire JSON on a single line. Do not add quotes around it.
 
 Install Python packages:
 
