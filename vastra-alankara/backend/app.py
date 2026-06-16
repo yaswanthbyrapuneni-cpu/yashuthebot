@@ -8,8 +8,9 @@ import google.auth
 import google.auth.transport.requests
 from google.oauth2 import service_account
 from dotenv import load_dotenv
+from pathlib import Path
 
-load_dotenv()
+load_dotenv(dotenv_path=Path(__file__).parent / ".env")
 
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
@@ -17,7 +18,7 @@ logger = logging.getLogger(__name__)
 app = Flask(__name__)
 CORS(app)
 
-VERTEX_PROJECT_ID = os.getenv('VERTEX_PROJECT_ID')
+VERTEX_PROJECT_ID = os.getenv('VERTEX_PROJECT_ID', 'project-bc9ba853-ede2-43c2-a3e')
 VERTEX_REGION = os.getenv('VERTEX_REGION', 'us-central1')
 
 _vertex_credentials = None
