@@ -1,5 +1,5 @@
 import { useRef, useState, useCallback, useEffect } from "react";
-import { Camera, Zap, RefreshCw } from "lucide-react";
+import { Camera, Zap, RefreshCw, Download } from "lucide-react";
 import { GarmentOption } from "../data/catalog";
 
 const BACKEND_URL = import.meta.env.VITE_BACKEND_URL ?? "http://localhost:5000";
@@ -178,13 +178,27 @@ export function TryOnCamera({ selectedGarment }: TryOnCameraProps) {
         )}
 
         {resultImage && (
-          <button
-            onClick={tryAgain}
-            className="flex-1 flex items-center justify-center gap-2 py-3 rounded-full bg-white/10 text-white font-medium"
-          >
-            <RefreshCw className="w-4 h-4" />
-            Try Again
-          </button>
+          <>
+            <button
+              onClick={tryAgain}
+              className="flex-1 flex items-center justify-center gap-2 py-3 rounded-full bg-white/10 text-white font-medium"
+            >
+              <RefreshCw className="w-4 h-4" />
+              Try Again
+            </button>
+            <button
+              onClick={() => {
+                const a = document.createElement("a");
+                a.href = resultImage;
+                a.download = `vastra-tryon-${Date.now()}.png`;
+                a.click();
+              }}
+              className="flex-1 flex items-center justify-center gap-2 py-3 rounded-full bg-amber-400 text-white font-medium"
+            >
+              <Download className="w-4 h-4" />
+              Save Look
+            </button>
+          </>
         )}
       </div>
     </div>
