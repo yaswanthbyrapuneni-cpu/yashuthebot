@@ -239,12 +239,18 @@ export function VirtualTryOn({ isOpen, onClose, productId, productImage, product
     }
   }, [isOpen, detectorType]);
   
-  // Cleanup on unmount
+  // Cleanup on unmount - only here do we truly stop the stream
   useEffect(() => {
     return () => {
       mountedRef.current = false;
-      // Clean up resources
-      stopCamera();
+      if (requestRef.current) {
+        cancelAnimationFrame(requestRef.current);
+        requestRef.current = 0;
+      }
+      if (streamRef.current) {
+        streamRef.current.getTracks().forEach(track => track.stop());
+        streamRef.current = null;
+      }
     };
   }, []);
 
@@ -313,20 +319,22 @@ export function VirtualTryOn({ isOpen, onClose, productId, productImage, product
           }
         }, 10000);
 
-        const mediaStream = await navigator.mediaDevices.getUserMedia({
-          video: {
-            width: { ideal: 1280 },
-            height: { ideal: 720 },
-            facingMode: "user",
-          }
-        });
-
-        if (!isMounted || !mountedRef.current) {
-          mediaStream.getTracks().forEach(track => track.stop());
-          return;
+        // Reuse existing stream if still active (avoids camera re-init delay)
+        let mediaStream = streamRef.current;
+        if (!mediaStream || !mediaStream.active) {
+          mediaStream = await navigator.mediaDevices.getUserMedia({
+            video: {
+              width: { ideal: 1280 },
+              height: { ideal: 720 },
+              facingMode: "user",
+            }
+          });
+          streamRef.current = mediaStream;
         }
 
-        streamRef.current = mediaStream;
+        if (!isMounted || !mountedRef.current) {
+          return;
+        }
         
         if (videoRef.current) {
           videoRef.current.srcObject = mediaStream;
@@ -362,20 +370,12 @@ export function VirtualTryOn({ isOpen, onClose, productId, productImage, product
     return () => {
       isMounted = false;
       clearTimeout(timeoutId);
-      
+
       if (requestRef.current) {
         cancelAnimationFrame(requestRef.current);
         requestRef.current = 0;
       }
-
-      if (streamRef.current) {
-        streamRef.current.getTracks().forEach(track => track.stop());
-        streamRef.current = null;
-      }
-
-      if (videoRef.current) {
-        videoRef.current.srcObject = null;
-      }
+      // Keep stream alive for next open - only stopped on unmount
     };
   }, [isOpen, isDetectorReady, jewelryImage]);
 
@@ -737,16 +737,7 @@ export function VirtualTryOn({ isOpen, onClose, productId, productImage, product
       requestRef.current = 0;
     }
     
-    // Stop all tracks and clear stream
-    if (streamRef.current) {
-      streamRef.current.getTracks().forEach((track) => {
-        track.stop();
-        console.log('[VTO] Stopped track:', track.kind);
-      });
-      streamRef.current = null;
-    }
-    
-    // Clear video source
+    // Keep stream alive for fast re-open - only stop on unmount
     if (videoRef.current) {
       videoRef.current.srcObject = null;
     }
