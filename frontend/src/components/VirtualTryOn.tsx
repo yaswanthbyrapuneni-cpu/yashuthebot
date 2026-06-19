@@ -1,15 +1,13 @@
 import { FaceLandmarkerResult, HandLandmarkerResult, NormalizedLandmark, PoseLandmarkerResult } from "@mediapipe/tasks-vision";
-import { Camera, Download, Layers, RefreshCw, X, MessageCircle } from "lucide-react";
+import { Camera, Download, RefreshCw, X, MessageCircle } from "lucide-react";
 import { useEffect, useRef, useState } from "react";
 import { DetectorType, loadDetector, runDetection, detectFaceOnImage } from "../detectors/DetectorManager";
-import { SareeOption } from "../data/sarees";
 import { supabase } from "../integrations/supabase/client";
 import { getJewelryPlacement, JewelryType } from "../utils/jewelry-positioner";
 import { calculateDominantEmotion, useEmotionDetection } from "../utils/useemotiondetection";
 import { trackTryOnEvent } from "../utils/visitor-tracking";
 import { EmotionValidationPopup } from "./emotionvalidationpopup";
 import { CustomerSupportModal } from "./CustomerSupportModal";
-import { SareeSelector } from "./SareeSelector";
 
 // Function to check if an ear is visible based on landmark visibility and face angle
 function checkEarVisibility(landmarks: NormalizedLandmark[], side: 'left' | 'right'): boolean {
@@ -84,9 +82,6 @@ export function VirtualTryOn({ isOpen, onClose, productId, productImage, product
   // State for customer support modal
   const [isSupportModalOpen, setIsSupportModalOpen] = useState(false);
 
-  // State for combined saree + jewelry try-on
-  const [showSareeSelector, setShowSareeSelector] = useState(false);
-  const [selectedSaree, setSelectedSaree] = useState<SareeOption | null>(null);
   const [isGenerating, setIsGenerating] = useState(false);
   const [combinedResultImage, setCombinedResultImage] = useState<string | null>(null);
 
@@ -692,42 +687,6 @@ export function VirtualTryOn({ isOpen, onClose, productId, productImage, product
     });
   };
 
-  const handleGenerateCombined = async () => {
-    if (!selectedSaree) return;
-    setIsGenerating(true);
-    try {
-      const personDataUrl = captureRawVideoFrame();
-      if (!personDataUrl) throw new Error('Could not capture video frame');
-
-      const sareeResp = await fetch(selectedSaree.imageUrl);
-      const sareeBlob = await sareeResp.blob();
-      const sareeDataUrl: string = await new Promise((resolve) => {
-        const reader = new FileReader();
-        reader.onload = () => resolve(reader.result as string);
-        reader.readAsDataURL(sareeBlob);
-      });
-
-      const backendUrl = (import.meta as any).env?.VITE_BACKEND_URL ?? 'http://localhost:5000';
-      const response = await fetch(`${backendUrl}/try-on-saree`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ person_image: personDataUrl, saree_image: sareeDataUrl }),
-      });
-
-      const data = await response.json();
-      if (!data.success) throw new Error(data.error || 'Generation failed');
-
-      const finalImage = await drawJewelryOnResult(data.result_image);
-      setCombinedResultImage(finalImage);
-      setShowSareeSelector(false);
-    } catch (err) {
-      console.error('[VTO] Combined try-on error:', err);
-      alert('Could not generate look. Please check backend and try again.');
-    } finally {
-      setIsGenerating(false);
-    }
-  };
-
   const stopCamera = () => {
     console.log('[VTO] Stopping camera and cleaning up');
     
@@ -824,27 +783,6 @@ export function VirtualTryOn({ isOpen, onClose, productId, productImage, product
             </div>
           )}
 
-          {/* Try with Saree button — visible when camera is live */}
-          {hasCamera && !isLoading && !combinedResultImage && (
-            <button
-              onClick={() => setShowSareeSelector(true)}
-              className="absolute top-20 right-6 z-20 flex items-center gap-2 px-4 py-2.5 rounded-full bg-[#d4af37]/90 backdrop-blur-sm text-white font-['Montserrat'] text-sm font-medium hover:bg-[#d4af37] transition-all shadow-lg"
-            >
-              <Layers className="w-4 h-4" />
-              Try with Saree
-            </button>
-          )}
-
-          {/* Saree Selector overlay */}
-          {showSareeSelector && (
-            <SareeSelector
-              selected={selectedSaree}
-              onSelect={setSelectedSaree}
-              onClose={() => setShowSareeSelector(false)}
-              onGenerate={handleGenerateCombined}
-              isGenerating={isGenerating}
-            />
-          )}
 
           {/* Processing overlay */}
           {isGenerating && (
@@ -874,7 +812,7 @@ export function VirtualTryOn({ isOpen, onClose, productId, productImage, product
               </div>
               <div className="flex gap-3 px-6 py-4 bg-black/50">
                 <button
-                  onClick={() => { setCombinedResultImage(null); setShowSareeSelector(true); }}
+                  onClick={() => { setCombinedResultImage(null); }}
                   className="flex-1 flex items-center justify-center gap-2 py-3 rounded-full border border-white/20 font-['Montserrat'] text-white/70 text-sm hover:bg-white/10 transition-colors"
                 >
                   <RefreshCw className="w-4 h-4" />
