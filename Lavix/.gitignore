@@ -1,0 +1,70 @@
+# ── Python ──
+__pycache__/
+*.py[cod]
+*.pyo
+*.pyd
+*.egg-info/
+.eggs/
+dist/
+build/
+*.egg
+venv/
+env/
+.venv/
+
+# ── Node / Frontend ──
+node_modules/
+frontend/node_modules/
+frontend/customer/node_modules/
+frontend/dist/
+frontend/customer/dist/
+.next/
+.nuxt/
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+
+# ── Environment & Secrets ──
+.env
+.env.local
+.env.production
+backend/.env
+*.pem
+vastra-key.json
+
+# ── Sensitive Data ──
+backend/admin_users.json
+backend/feedback.json
+backend/deleted_garments.json
+backend/garments.json
+backend/support_tickets.json
+backend/security_settings.json
+
+# ── Build Artifacts ──
+dist/
+frontend/customer/dist/
+frontend/admin/dist/
+*.pyc
+*.log
+
+# ── Large Media Files ──
+*.mp4
+*.avi
+*.mov
+*.mkv
+
+# ── Design Exports (Figma imports - not used by app) ──
+frontend/customer/src/imports/
+frontend/admin/src/imports/
+# Exception: specific PNGs from imports/ that ARE used are force-added via git add -f
+
+# ── OS ──
+.DS_Store
+Thumbs.db
+desktop.ini
+
+# ── IDE ──
+.vscode/
+.idea/
+*.suo
+*.user

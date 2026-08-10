@@ -1,0 +1,16 @@
+{
+  "name": "vastra-frontend-workspace",
+  "version": "1.0.0",
+  "private": true,
+  "scripts": {
+    "dev:admin": "npm run dev --prefix admin",
+    "dev:customer": "npm run dev --prefix customer",
+    "dev": "concurrently \"npm run dev --prefix admin\" \"npm run dev --prefix customer\"",
+    "build:admin": "npm run build --prefix admin",
+    "build:customer": "npm run build --prefix customer",
+    "build": "npm run build --prefix admin && npm run build --prefix customer"
+  },
+  "devDependencies": {
+    "concurrently": "^8.2.2"
+  }
+}

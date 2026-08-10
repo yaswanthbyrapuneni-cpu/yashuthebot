@@ -1,0 +1,17 @@
+/* Ensure paragraph texts (collection labels/titles) do not show underlines */
+p {
+	text-decoration: none !important;
+}
+
+/* Specific reset for collection labels if needed */
+.content-stretch p {
+	text-decoration: none !important;
+}
+
+/* Remove underline and default link color from anchors used in imported pages */
+a, a * {
+	text-decoration: none !important;
+	color: inherit !important;
+}
+
+

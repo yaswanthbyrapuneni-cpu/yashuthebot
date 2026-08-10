@@ -1,0 +1,15 @@
+{
+  "fonts": [
+    { "family": "Inter", "style": "Semi Bold", "fontId": "Inter_1", "source": "GOOGLE", "cssFamily": "Inter:Semi Bold" },
+    { "family": "Inter", "style": "Medium", "fontId": "Inter_1", "source": "GOOGLE", "cssFamily": "Inter:Medium" },
+    { "family": "Inter", "style": "Regular", "fontId": "Inter_1", "source": "GOOGLE", "cssFamily": "Inter:Regular" },
+    { "family": "Roboto", "style": "Regular", "fontId": "Roboto_wdth_wght__3", "source": "GOOGLE", "cssFamily": "Roboto:Regular" },
+    { "family": "Clash Display", "style": "Medium", "fontId": "C:\\USERS\\HP\\APPDATA\\LOCAL\\MICROSOFT\\WINDOWS\\FONTS\\CLASHDISPLAY-MEDIUM.OTF", "source": "LOCAL", "cssFamily": "Clash Display:Medium" },
+    { "family": "Roboto", "style": "Medium", "fontId": "Roboto_wdth_wght__3", "source": "GOOGLE", "cssFamily": "Roboto:Medium" },
+    { "family": "Inter", "style": "Light", "fontId": "Inter_1", "source": "GOOGLE", "cssFamily": "Inter:Light" },
+    { "family": "Inter", "style": "Bold", "fontId": "Inter_1", "source": "GOOGLE", "cssFamily": "Inter:Bold" },
+    { "family": "Arial", "style": "Regular", "fontId": "C:\\WINDOWS\\FONTS\\ARIAL.TTF", "source": "LOCAL", "cssFamily": "Arial:Regular" },
+    { "family": "Inter", "style": "Bold Italic", "fontId": "Inter_1", "source": "GOOGLE", "cssFamily": "Inter:Bold Italic" },
+    { "family": "Clash Display", "style": "Regular", "fontId": "C:\\USERS\\HP\\APPDATA\\LOCAL\\MICROSOFT\\WINDOWS\\FONTS\\CLASHDISPLAY-REGULAR.OTF", "source": "LOCAL", "cssFamily": "Clash Display:Regular" }
+  ]
+}

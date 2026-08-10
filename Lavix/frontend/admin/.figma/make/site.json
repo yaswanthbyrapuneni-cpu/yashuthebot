@@ -1,0 +1,10 @@
+{
+  "description": "Effortlessly transform design mockups into clean, functional React code, streamlining the development process for designers and developers alike.",
+  "robots": {
+    "index": false
+  },
+  "accessibility": {
+    "addBypassLinks": false,
+    "ignoreReducedMotion": false
+  }
+}
