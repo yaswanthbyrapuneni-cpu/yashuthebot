@@ -16,9 +16,8 @@ function figmaAssetResolver() {
         if (fs.existsSync(targetPath)) {
           return targetPath
         }
-        // Fallback to first existing asset if file is missing
-        const fallbackPath = path.resolve(__dirname, 'src/assets', '09ee7f105804aaf36566caff05d2b967ebcac06b.png')
-        return fallbackPath
+        // Fallback to a known existing placeholder image
+        return path.resolve(__dirname, 'src/assets', 'saree_model_1.png')
       }
     },
   }
