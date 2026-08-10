@@ -1,22 +1,16 @@
 version: "3.9"
 
-# ---------------------------------------------------------------------------
-# Set BACKEND_PUBLIC_URL to your VM's IP before building, e.g.:
-#   export BACKEND_PUBLIC_URL=http://34.1.2.3:5000
-#   export BACKEND_ALLOWED_ORIGINS=http://34.1.2.3
-# ---------------------------------------------------------------------------
-
 services:
   backend:
     build:
       context: ./backend
       dockerfile: Dockerfile
-    ports:
-      - "5000:5000"
+    expose:
+      - "5000"
     env_file:
       - ./backend/.env
     environment:
-      - ALLOWED_ORIGINS=${BACKEND_ALLOWED_ORIGINS:-http://localhost,https://localhost}
+      - ALLOWED_ORIGINS=https://lavix.in,https://www.lavix.in
     restart: unless-stopped
 
   frontend:
@@ -24,7 +18,7 @@ services:
       context: ./frontend/customer
       dockerfile: Dockerfile
       args:
-        VITE_BACKEND_URL: ${BACKEND_PUBLIC_URL:-http://localhost:5000}
+        VITE_BACKEND_URL: https://lavix.in
         VITE_SUPABASE_URL: https://ycmrtqczhdcwtoekraxx.supabase.co
         VITE_SUPABASE_ANON_KEY: eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InljbXJ0cWN6aGRjd3RvZWtyYXh4Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODU3MzIxOTMsImV4cCI6MjEwMTMwODE5M30.gtPgt8_QrlZq0YanGKKPFgVcPsy007FpsmxfLh25V5k
         VITE_KIOSK_ID: LAVIX_KIOSK_001
