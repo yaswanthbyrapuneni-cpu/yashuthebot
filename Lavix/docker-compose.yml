@@ -16,7 +16,7 @@ services:
     env_file:
       - ./backend/.env
     environment:
-      - ALLOWED_ORIGINS=${BACKEND_ALLOWED_ORIGINS:-http://localhost,http://localhost:80}
+      - ALLOWED_ORIGINS=${BACKEND_ALLOWED_ORIGINS:-http://localhost,https://localhost}
     restart: unless-stopped
 
   frontend:
@@ -30,6 +30,9 @@ services:
         VITE_KIOSK_ID: LAVIX_KIOSK_001
     ports:
       - "80:80"
+      - "443:443"
+    volumes:
+      - /mnt/data/ssl:/etc/nginx/ssl:ro
     depends_on:
       - backend
     restart: unless-stopped
