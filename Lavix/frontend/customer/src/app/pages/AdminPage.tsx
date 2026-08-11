@@ -227,10 +227,10 @@ export function AdminPage() {
           <div className="w-full md:w-1/2 p-8 md:p-12 flex flex-col justify-center gap-6 text-white bg-[#0e0e0e]/95">
             <div className="text-center flex flex-col gap-3">
               <div className="text-[11px] font-semibold tracking-[0.3em] text-neutral-400 uppercase select-none font-serif">
-                A L A N K A R A
+                L A V I X
               </div>
               <h1 className="text-3xl font-bold tracking-tight text-white mt-1">Admin Portal</h1>
-              <p className="text-xs text-neutral-400">Enter your credentials to access the retailer console</p>
+              <p className="text-xs text-neutral-400">Enter your credentials to access the Lavix console</p>
             </div>
 
             {loginError && (
@@ -321,7 +321,7 @@ export function AdminPage() {
               >✕</button>
 
               <div className="text-center">
-                <div className="text-[10px] tracking-[0.3em] text-neutral-500 uppercase font-serif mb-1">A L A N K A R A</div>
+                <div className="text-[10px] tracking-[0.3em] text-neutral-500 uppercase font-serif mb-1">L A V I X</div>
                 <h2 className="text-2xl font-bold">Change Password</h2>
                 <p className="text-xs text-neutral-400 mt-1">
                   {cpStep === "credentials" && "Verify your current credentials to receive an OTP"}
