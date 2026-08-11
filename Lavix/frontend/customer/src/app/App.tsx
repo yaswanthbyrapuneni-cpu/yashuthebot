@@ -25,7 +25,7 @@ export default function App() {
   };
 
   return (
-    <BrowserRouter>
+    <BrowserRouter basename="/tryon">
       <SecurityMonitor
         isActive={true}
         onSecurityStateChange={handleSecurityStateChange}
