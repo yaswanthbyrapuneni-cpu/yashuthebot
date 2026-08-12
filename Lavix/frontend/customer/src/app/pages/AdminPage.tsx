@@ -1358,8 +1358,9 @@ function SecurityView() {
   };
 
   useEffect(() => {
-    audioRef.current = new Audio("/siren.mp3");
+    audioRef.current = new Audio(`${import.meta.env.BASE_URL}siren.mp3`);
     audioRef.current.loop = true;
+    audioRef.current.preload = "auto";
     detectorRef.current = new SecurityDetector();
 
     return () => {

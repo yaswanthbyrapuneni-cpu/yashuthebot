@@ -50,6 +50,9 @@ export interface TryOnResponse {
   success: boolean;
   result_image?: string;
   error?: string;
+  /** "vertex" = real AI fitting, "local" = flat overlay fallback */
+  mode?: "vertex" | "local";
+  fallback_reason?: string;
 }
 
 export interface GarmentUploadResponse {

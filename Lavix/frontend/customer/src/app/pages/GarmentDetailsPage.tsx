@@ -1,7 +1,7 @@
 import { useEffect, useState } from "react";
-import { useParams, useLocation, Link } from "react-router-dom";
+import { useParams, useLocation } from "react-router-dom";
 import { ProductDetailsPage } from "./ProductDetailsPage";
-import { getGarments, Garment } from "../services/api";
+import { getGarments, Garment, isWomensGarment } from "../services/api";
 
 import fallbackImg from "figma:asset/a7bd8f94aa8209f92fa4986a16a8b5cbecee02b3.png";
 
@@ -50,10 +50,14 @@ export function GarmentDetailsPage() {
   const garmentCategory = garment?.category ? garment.category.toUpperCase() : "Catalog Collection";
   const garmentColor = garment?.color || "Custom Palette";
 
+  // Send the breadcrumb to the collection this garment actually belongs to,
+  // instead of dropping every product back on the home page.
+  const categoryLink = isWomensGarment(garment?.category, garment?.name) ? "/womens" : "/mens";
+
   return (
     <ProductDetailsPage
       category={`${garmentCategory} Collection`}
-      categoryLink="/home"
+      categoryLink={categoryLink}
       productName={garmentName}
       brand={`Lavix • ${garmentColor}`}
       price={3999}

@@ -34,6 +34,9 @@ register_security_routes(app)
 
 VERTEX_PROJECT_ID = os.getenv('VERTEX_PROJECT_ID', 'project-097e88fc-3268-4197-8c1')
 VERTEX_REGION = os.getenv('VERTEX_REGION', 'us-central1')
+# Must stay below nginx proxy_read_timeout (180s) so the client sees the real
+# result rather than a gateway timeout.
+VERTEX_TIMEOUT = int(os.getenv('VERTEX_TIMEOUT', '120'))
 
 _vertex_credentials = None
 
@@ -226,33 +229,67 @@ def try_on():
                     "parameters": {"sampleCount": 1}
                 }
 
-                response = requests.post(url, json=payload, headers=headers, timeout=20)
-                response.raise_for_status()
+                # virtual-try-on-001 routinely takes 15-40s. A short timeout here
+                # silently demotes good requests to the flat local compositor,
+                # which is what produces "the garment is just pasted on" results.
+                response = requests.post(url, json=payload, headers=headers, timeout=VERTEX_TIMEOUT)
+
+                if not response.ok:
+                    # raise_for_status() throws away the response body, and the body
+                    # is where Vertex explains what actually went wrong.
+                    raise RuntimeError(
+                        f"Vertex returned {response.status_code}: {response.text[:500]}"
+                    )
 
                 result = response.json()
                 predictions = result.get('predictions', [])
-                if predictions:
-                    pred = predictions[0]
-                    result_b64 = (
-                        pred.get('bytesBase64Encoded') or
-                        pred.get('image', {}).get('bytesBase64Encoded', '')
-                    )
-                    if result_b64:
-                        current_person_b64 = result_b64
+                if not predictions:
+                    raise RuntimeError(f"Vertex returned no predictions: {str(result)[:500]}")
+
+                pred = predictions[0]
+                result_b64 = (
+                    pred.get('bytesBase64Encoded') or
+                    pred.get('image', {}).get('bytesBase64Encoded', '')
+                )
+                if not result_b64:
+                    raise RuntimeError(f"Vertex prediction had no image bytes: {str(pred)[:500]}")
+
+                current_person_b64 = result_b64
+                logger.info(f"Garment {i + 1}/{len(garments_b64)} rendered via Vertex AI")
 
             logger.info("Try-on sequence generated via Vertex AI")
             return jsonify({
                 'success': True,
-                'result_image': f"data:image/png;base64,{current_person_b64}"
+                'result_image': f"data:image/png;base64,{current_person_b64}",
+                'mode': 'vertex'
             }), 200
 
-        except Exception as v_err:
-            logger.warning(f"Vertex AI unavailable or not configured ({v_err}). Using local AI try-on compositor.")
+        except requests.exceptions.Timeout:
+            logger.error(
+                f"Vertex AI timed out after {VERTEX_TIMEOUT}s. Falling back to local compositor "
+                "(result will be a flat overlay, not a fitted render)."
+            )
             res_b64 = process_local_tryon(person_b64, garments_b64)
             return jsonify({
                 'success': True,
                 'result_image': f"data:image/png;base64,{res_b64}",
-                'mode': 'local'
+                'mode': 'local',
+                'fallback_reason': 'Vertex AI timed out'
+            }), 200
+
+        except Exception as v_err:
+            # Log at error level with the real message — this used to be a warning
+            # that hid auth/quota failures behind a plausible-looking bad result.
+            logger.error(
+                f"Vertex AI try-on failed: {v_err}. Falling back to local compositor "
+                "(result will be a flat overlay, not a fitted render)."
+            )
+            res_b64 = process_local_tryon(person_b64, garments_b64)
+            return jsonify({
+                'success': True,
+                'result_image': f"data:image/png;base64,{res_b64}",
+                'mode': 'local',
+                'fallback_reason': str(v_err)[:200]
             }), 200
 
     except Exception as e:

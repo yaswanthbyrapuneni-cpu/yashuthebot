@@ -114,6 +114,7 @@ export function ProductDetailsPage({
   const [tryOnResult, setTryOnResult] = useState<string | null>(null);
   const [isCameraActive, setIsCameraActive] = useState(false);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
+  const [isDegradedResult, setIsDegradedResult] = useState(false);
   const [cartAdded, setCartAdded] = useState(false);
 
   // Virtual Try-On Panel State
@@ -125,6 +126,7 @@ export function ProductDetailsPage({
 
   const webcamRef = useRef<Webcam>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
+  const mirrorRef = useRef<HTMLDivElement>(null);
 
   const [modalCameraCountdown, setModalCameraCountdown] = useState<number | null>(null);
 
@@ -143,7 +145,16 @@ export function ProductDetailsPage({
 
       if (res.success && res.result_image) {
         setTryOnResult(res.result_image);
-        
+
+        // The backend returns a flat-overlay composite when Vertex AI is
+        // unavailable. Flag it instead of passing it off as a real AI fitting.
+        if (res.mode === "local") {
+          setIsDegradedResult(true);
+          console.warn("[Try-On] Vertex AI unavailable, showing local composite:", res.fallback_reason);
+        } else {
+          setIsDegradedResult(false);
+        }
+
         // Generate a new unique session ID
         const newSessionId = `sess_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
         setFeedbackSessionId(newSessionId);
@@ -242,6 +253,52 @@ export function ProductDetailsPage({
     setIsCameraActive(true);
   };
 
+  const enterFullScreen = () => {
+    const el = mirrorRef.current as any;
+    if (!el) return;
+    const doc: any = document;
+    if (doc.fullscreenElement || doc.webkitFullscreenElement || doc.msFullscreenElement) return;
+
+    const request =
+      el.requestFullscreen || el.webkitRequestFullscreen || el.msRequestFullscreen;
+    if (request) {
+      // Fails silently if the browser blocks it (no user gesture, iOS Safari);
+      // the modal is still full-viewport via CSS in that case.
+      Promise.resolve(request.call(el)).then(() => setIsFullScreen(true)).catch(() => {});
+    }
+  };
+
+  const exitFullScreen = () => {
+    const doc: any = document;
+    if (doc.fullscreenElement || doc.webkitFullscreenElement || doc.msFullscreenElement) {
+      const exit = doc.exitFullscreen || doc.webkitExitFullscreen || doc.msExitFullscreen;
+      if (exit) Promise.resolve(exit.call(doc)).catch(() => {});
+    }
+    setIsFullScreen(false);
+  };
+
+  // The modal element only exists after isTryOnModalOpen flips to true, so the
+  // fullscreen request has to happen once it is mounted — not inside the click.
+  useEffect(() => {
+    if (isTryOnModalOpen) enterFullScreen();
+  }, [isTryOnModalOpen]);
+
+  // Keep state in sync when the user leaves fullscreen with Esc.
+  useEffect(() => {
+    const onChange = () => {
+      const doc: any = document;
+      setIsFullScreen(
+        Boolean(doc.fullscreenElement || doc.webkitFullscreenElement || doc.msFullscreenElement)
+      );
+    };
+    document.addEventListener("fullscreenchange", onChange);
+    document.addEventListener("webkitfullscreenchange", onChange);
+    return () => {
+      document.removeEventListener("fullscreenchange", onChange);
+      document.removeEventListener("webkitfullscreenchange", onChange);
+    };
+  }, []);
+
   const handleOpenMirrorModal = () => {
     setIsTryOnModalOpen(true);
     setIsCameraActive(true); // Automatically activate live webcam when mirror modal opens
@@ -252,6 +309,7 @@ export function ProductDetailsPage({
   };
 
   const handleCloseModal = () => {
+    exitFullScreen();
     if (feedbackTimerRef.current) {
       clearTimeout(feedbackTimerRef.current);
     }
@@ -260,6 +318,7 @@ export function ProductDetailsPage({
     setIsTryOnLoading(false);
     setFaceImage(null);
     setTryOnResult(null);
+    setIsDegradedResult(false);
     setIsCameraActive(false);
     setErrorMessage(null);
     setZoomLevel(100);
@@ -281,6 +340,7 @@ export function ProductDetailsPage({
     setIsFeedbackOpen(false);
     setFaceImage(null);
     setTryOnResult(null);
+    setIsDegradedResult(false);
     setIsCameraActive(true);
     setErrorMessage(null);
     setZoomLevel(100);
@@ -382,7 +442,10 @@ export function ProductDetailsPage({
 
       {/* VIRTUAL TRY-ON MODAL PANEL (CLEAN FULL SCREEN EDGE-TO-EDGE) */}
       {isTryOnModalOpen && (
-        <div className="fixed inset-0 z-[100] bg-black w-full h-[100dvh] overflow-hidden flex flex-col p-0 m-0">
+        <div
+          ref={mirrorRef}
+          className="fixed inset-0 z-[100] bg-black w-full h-[100dvh] overflow-hidden flex flex-col p-0 m-0"
+        >
           
           {/* Modal Header Controls (Floating Overlay) */}
           <div className="absolute top-0 left-0 right-0 z-40 flex justify-between items-center px-6 py-5 bg-gradient-to-b from-black/90 via-black/40 to-transparent text-white">
@@ -390,16 +453,40 @@ export function ProductDetailsPage({
               <ScanFace className="w-7 h-7 text-emerald-400" />
               <div>
                 <h2 className="text-xl font-bold tracking-tight">Lavix Virtual Mirror</h2>
-                <div className="flex items-center gap-2 text-xs text-emerald-400 font-semibold">
-                  <span className="w-2 h-2 rounded-full bg-emerald-400 animate-pulse" />
-                  <span>{tryOnResult ? "Rendered AI Output Ready" : isTryOnLoading ? "Rendering Garment..." : "Live Webcam Active"}</span>
+                <div
+                  className={`flex items-center gap-2 text-xs font-semibold ${
+                    tryOnResult && isDegradedResult ? "text-amber-400" : "text-emerald-400"
+                  }`}
+                >
+                  <span
+                    className={`w-2 h-2 rounded-full animate-pulse ${
+                      tryOnResult && isDegradedResult ? "bg-amber-400" : "bg-emerald-400"
+                    }`}
+                  />
+                  <span>
+                    {tryOnResult
+                      ? isDegradedResult
+                        ? "Preview Only — AI Fitting Unavailable"
+                        : "Rendered AI Output Ready"
+                      : isTryOnLoading
+                      ? "Rendering Garment..."
+                      : "Live Webcam Active"}
+                  </span>
                 </div>
               </div>
             </div>
             <div className="flex items-center gap-3">
-              <button 
-                onClick={handleRestartSession} 
-                className="p-2.5 bg-black/60 hover:bg-black/90 rounded-full transition-colors text-white border border-white/20 shadow-xl cursor-pointer" 
+              <button
+                onClick={() => (isFullScreen ? exitFullScreen() : enterFullScreen())}
+                className="p-2.5 bg-black/60 hover:bg-black/90 rounded-full transition-colors text-white border border-white/20 shadow-xl cursor-pointer"
+                title={isFullScreen ? "Exit Full Screen" : "Enter Full Screen"}
+              >
+                {isFullScreen ? <Minimize className="w-5 h-5" /> : <Maximize className="w-5 h-5" />}
+              </button>
+
+              <button
+                onClick={handleRestartSession}
+                className="p-2.5 bg-black/60 hover:bg-black/90 rounded-full transition-colors text-white border border-white/20 shadow-xl cursor-pointer"
                 title="Restart Session"
               >
                 <RotateCcw className="w-5 h-5" />

@@ -75,9 +75,10 @@ export default function SecurityMonitor({
     document.body.appendChild(video);
     videoRef.current = video;
     
-    // Load siren audio
-    audioRef.current = new Audio('/siren.mp3');
+    // Load siren audio (BASE_URL keeps this correct under the /tryon/ sub-path)
+    audioRef.current = new Audio(`${import.meta.env.BASE_URL}siren.mp3`);
     audioRef.current.loop = true;
+    audioRef.current.preload = 'auto';
 
     return () => {
       mountedRef.current = false;
@@ -95,7 +96,13 @@ export default function SecurityMonitor({
         const settings = await getSecuritySettings(kioskId);
         
         if (!settings) {
-          console.warn('[Security Monitor] No settings found for kiosk:', kioskId);
+          // getSecuritySettings already logged the reason once; stay quiet on
+          // subsequent polls so the console remains readable.
+          if (securityModeEnabled) {
+            stopMonitoring();
+            setSecurityModeEnabled(false);
+            onSecurityStateChange?.(false, false);
+          }
           return;
         }
 

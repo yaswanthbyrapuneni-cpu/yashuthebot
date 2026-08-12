@@ -56,21 +56,52 @@ export async function storeSecurityEvent(event: SecurityEvent): Promise<boolean>
   }
 }
 
+// The settings poll runs every 10s. Without this guard a missing table or a
+// missing row floods the console with an identical error forever.
+let settingsErrorLogged = false;
+
 export async function getSecuritySettings(kioskId: string) {
   try {
     const { data, error } = await supabase
       .from('security_settings')
       .select('*')
       .eq('kiosk_id', kioskId)
-      .single();
+      .maybeSingle();
 
     if (error) {
-      console.error('[Supabase Security] Failed to get settings:', error);
+      if (!settingsErrorLogged) {
+        settingsErrorLogged = true;
+        if (error.code === 'PGRST205') {
+          console.error(
+            '[Supabase Security] security_settings table does not exist. ' +
+            'Run Lavix/backend/security_schema.sql in the Supabase SQL Editor. ' +
+            'Security monitoring is disabled until then.'
+          );
+        } else {
+          console.error('[Supabase Security] Failed to get settings:', error);
+        }
+      }
       return null;
     }
+
+    if (!data) {
+      if (!settingsErrorLogged) {
+        settingsErrorLogged = true;
+        console.warn(
+          `[Supabase Security] No security_settings row for kiosk "${kioskId}". ` +
+          'Seed it with security_schema.sql or enable security once from the admin panel.'
+        );
+      }
+      return null;
+    }
+
+    settingsErrorLogged = false;
     return data;
   } catch (error) {
-    console.error('[Supabase Security] Get settings error:', error);
+    if (!settingsErrorLogged) {
+      settingsErrorLogged = true;
+      console.error('[Supabase Security] Get settings error:', error);
+    }
     return null;
   }
 }
