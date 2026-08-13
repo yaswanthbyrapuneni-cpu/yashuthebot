@@ -134,6 +134,7 @@ export function IdleDetector() {
         <video
           ref={adVideoRef}
           src={GCP_VIDEO_URL}
+          poster={`${import.meta.env.BASE_URL}ad-poster.jpg`}
           className="absolute inset-0 w-full h-full object-cover object-center"
           loop
           playsInline
