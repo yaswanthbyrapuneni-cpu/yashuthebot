@@ -1362,6 +1362,90 @@ def verify_change_password():
         return jsonify({'success': False, 'error': str(e)}), 500
 
 
+@app.route('/api/book-demo', methods=['POST'])
+def book_demo():
+    """
+    Book Demo form on the marketing site (www.lavix.in).
+
+    Previously a Netlify Function; moved here when the site left Netlify so the
+    form keeps working from the VM. Reuses the same SMTP credentials as the
+    security alerts (SMTP_PASS, with SMTP_PASSWORD accepted as an alias for the
+    old Netlify variable naming).
+    """
+    try:
+        data = request.get_json(silent=True)
+        if not data:
+            return jsonify({'success': False, 'error': 'Invalid JSON body'}), 400
+
+        smtp_host = os.getenv('SMTP_HOST', 'smtp.gmail.com')
+        smtp_port = int(os.getenv('SMTP_PORT', '587'))
+        smtp_user = os.getenv('SMTP_USER')
+        smtp_pass = os.getenv('SMTP_PASS') or os.getenv('SMTP_PASSWORD')
+        to_email = os.getenv('BOOK_DEMO_EMAIL') or os.getenv('TO_EMAIL', 'future@aismartlive.com')
+
+        if not (smtp_user and smtp_pass):
+            logger.error("Book demo: SMTP_USER/SMTP_PASS not configured")
+            return jsonify({'success': False, 'error': 'Mail service not configured'}), 500
+
+        fields = [
+            ('Full Name', data.get('fullName', 'N/A')),
+            ('Work Email', data.get('email', 'N/A')),
+            ('Phone Number', data.get('phone', 'N/A')),
+            ('Store / Brand Name', data.get('storeName', 'N/A')),
+            ('City', data.get('city', 'N/A')),
+            ('Hardware Edition', data.get('deploymentType', 'N/A')),
+            ('Preferred Date', data.get('preferredDate', 'N/A')),
+        ]
+
+        full_name = data.get('fullName', 'N/A')
+        store_name = data.get('storeName', 'N/A')
+        user_email = data.get('email', '')
+
+        text_body = "New LAVIX Demo Booking Request\n\n" + "\n".join(
+            f"- {label}: {value}" for label, value in fields
+        )
+
+        rows = "".join(
+            f'<tr style="border-bottom:1px solid #F1E4D3">'
+            f'<td style="padding:10px 0;font-weight:bold;color:#6E1F1F;width:40%">{label}:</td>'
+            f'<td style="padding:10px 0">{value}</td></tr>'
+            for label, value in fields
+        )
+        html_body = f"""
+        <html><body style="font-family:Arial,sans-serif;color:#2A1C18;background:#FFF9F2;padding:20px">
+          <div style="max-width:600px;margin:0 auto;background:#fff;padding:30px;border-radius:16px;border:1px solid #F1E4D3">
+            <h2 style="color:#6E1F1F;margin-top:0">New LAVIX Demo Request</h2>
+            <p style="font-size:14px;color:#5E4A43">A retailer has scheduled a live virtual trial room demo.</p>
+            <table style="width:100%;border-collapse:collapse;font-size:14px;margin-top:20px">{rows}</table>
+            <div style="margin-top:25px;padding-top:15px;border-top:1px solid #F1E4D3;text-align:center;font-size:12px;color:#5E4A43">
+              AISMARTLIVE SOLUTIONS PVT LTD
+            </div>
+          </div>
+        </body></html>
+        """
+
+        msg = MIMEMultipart('alternative')
+        msg['Subject'] = f"New LAVIX Demo Booking: {full_name} ({store_name})"
+        msg['From'] = smtp_user
+        msg['To'] = to_email
+        if user_email:
+            msg['Reply-To'] = user_email
+        msg.attach(MIMEText(text_body, 'plain'))
+        msg.attach(MIMEText(html_body, 'html'))
+
+        with smtplib.SMTP(smtp_host, smtp_port, timeout=20) as server:
+            server.starttls()
+            server.login(smtp_user, smtp_pass)
+            server.send_message(msg)
+
+        logger.info(f"Book demo request emailed to {to_email} for {full_name}")
+        return jsonify({'success': True, 'message': 'Demo request sent successfully!'}), 200
+
+    except Exception as e:
+        logger.error(f"Book demo email failed: {e}")
+        return jsonify({'success': False, 'error': str(e)}), 500
+
+
 # Run at module level so gunicorn picks it up on import
 check_supabase_connection()
 

@@ -1,6 +1,15 @@
-version: "3.9"
-
 services:
+  # Marketing site (www.lavix.in root). Built from the separate lavix-website
+  # repo, which must be cloned alongside this one at ../../lavix-website.
+  # It uses Git LFS for the videos — see DEPLOY.md before first build.
+  marketing:
+    build:
+      context: ../lavix-website
+      dockerfile: Dockerfile
+    expose:
+      - "80"
+    restart: unless-stopped
+
   backend:
     build:
       context: ./backend
@@ -32,4 +41,5 @@ services:
       - /mnt/data/ssl:/etc/nginx/ssl:ro
     depends_on:
       - backend
+      - marketing
     restart: unless-stopped
