@@ -104,6 +104,50 @@ The last one should report `HTTP/1.1 200` and `Accept-Ranges: bytes`. If it
 returns a few hundred bytes instead of ~144MB, you are serving an LFS pointer —
 go back to step 1.
 
+## Kiosk ad video (GCS)
+
+The landing page background and the idle screensaver both stream
+`gs://vastra-assets/vastralanakara_AD.mp4` (138MB, 1080x1920, 20.8 Mbps).
+
+An MP4 only streams if its `moov` atom sits **before** `mdat`. When `moov` is
+last, the browser must download the whole file before it can render one frame.
+Check any video before blaming the network:
+
+```bash
+curl -s -r 0-120 "https://storage.googleapis.com/vastra-assets/vastralanakara_AD.mp4" | tr -c '[:print:]' '.'
+```
+
+`moov` near the start means it streams. If you see `mdat` first, remux it —
+`-c copy` rearranges the container without re-encoding, so quality is
+untouched:
+
+```bash
+sudo apt-get install -y ffmpeg
+cd /mnt/data                                   # not /tmp; root disk is small
+gsutil cp gs://vastra-assets/vastralanakara_AD.mp4 .
+gsutil cp gs://vastra-assets/vastralanakara_AD.mp4 \
+          gs://vastra-assets/vastralanakara_AD.backup.mp4   # keep a rollback
+
+ffmpeg -i vastralanakara_AD.mp4 -c copy -movflags +faststart AD_fs.mp4
+
+# Confirm moov moved to the front before uploading
+python3 -c "
+import struct
+fh=open('AD_fs.mp4','rb'); order=[]
+while len(order)<5:
+    h=fh.read(8)
+    if len(h)<8: break
+    s=struct.unpack('>I',h[:4])[0]; order.append(h[4:8].decode('latin1'))
+    fh.seek(s-8,1) if s>1 else None
+print(order, 'faststart:', order.index('moov')<order.index('mdat'))"
+
+gsutil -h "Cache-Control:public, max-age=86400" \
+       cp AD_fs.mp4 gs://vastra-assets/vastralanakara_AD.mp4
+```
+
+Roll back with:
+`gsutil cp gs://vastra-assets/vastralanakara_AD.backup.mp4 gs://vastra-assets/vastralanakara_AD.mp4`
+
 ## Routing gotcha
 
 nginx sends only paths matching
