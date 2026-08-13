@@ -104,7 +104,7 @@ export default function LandingPage() {
       {/* ── Background Video ── */}
       <div style={{ position: "absolute", inset: 0, zIndex: 1, background: "#000", overflow: "hidden" }}>
         <video
-          src="https://storage.googleapis.com/vastra-assets/vastralanakara_AD.mp4"
+          src="/intro.mp4"
           poster={`${import.meta.env.BASE_URL}ad-poster.jpg`}
           autoPlay
           muted

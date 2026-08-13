@@ -3,7 +3,10 @@ import { useNavigate, useLocation } from "react-router-dom";
 import { loadDetector, runDetection } from "../detectors/DetectorManager";
 import { FaceLandmarkerResult } from "@mediapipe/tasks-vision";
 
-const GCP_VIDEO_URL = "https://storage.googleapis.com/vastra-assets/vastralanakara_AD.mp4";
+// Served from this VM (same file as the marketing hero, already remuxed with
+// faststart so it streams instead of downloading in full first). The GCS copy
+// lives in a different GCP account we cannot write to, so it stays unfixed.
+const GCP_VIDEO_URL = "/intro.mp4";
 const INACTIVITY_TIMEOUT = 30_000;
 
 export function IdleDetector() {
