@@ -34,9 +34,10 @@ register_security_routes(app)
 
 VERTEX_PROJECT_ID = os.getenv('VERTEX_PROJECT_ID', 'project-097e88fc-3268-4197-8c1')
 VERTEX_REGION = os.getenv('VERTEX_REGION', 'us-central1')
-# Must stay below nginx proxy_read_timeout (180s) so the client sees the real
-# result rather than a gateway timeout.
-VERTEX_TIMEOUT = int(os.getenv('VERTEX_TIMEOUT', '120'))
+# Must stay below the gunicorn worker timeout (150s), which in turn stays below
+# nginx proxy_read_timeout (180s). Equal values race: the worker gets killed
+# while encoding a response Vertex had already returned successfully.
+VERTEX_TIMEOUT = int(os.getenv('VERTEX_TIMEOUT', '90'))
 
 _vertex_credentials = None
 

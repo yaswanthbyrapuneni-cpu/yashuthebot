@@ -137,11 +137,34 @@ export async function requestVirtualTryOn(
         garment_image: garmentImageBase64,
       }),
     });
-    return await res.json();
+
+    // A gateway timeout or crashed worker returns an HTML error page, not JSON.
+    // Parsing that blindly surfaced 'Unexpected token "<"' to customers standing
+    // at the kiosk. Detect it and show something they can act on instead.
+    const body = await res.text();
+    let data: TryOnResponse;
+    try {
+      data = JSON.parse(body);
+    } catch {
+      console.error(`[Try-On] Non-JSON response (HTTP ${res.status}):`, body.slice(0, 300));
+      return {
+        success: false,
+        error:
+          res.status === 504 || res.status === 502
+            ? "The try-on is taking longer than expected. Please try again."
+            : "Something went wrong generating your try-on. Please try again.",
+      };
+    }
+
+    if (!res.ok && data.success !== false) {
+      return { success: false, error: `Try-on failed (HTTP ${res.status}).` };
+    }
+    return data;
   } catch (err: any) {
+    console.error("[Try-On] Request failed:", err);
     return {
       success: false,
-      error: `Failed to connect to backend: ${err.message}. Please verify Flask server is active on ${API_BASE_URL}`,
+      error: "Could not reach the try-on service. Please check the connection and try again.",
     };
   }
 }
