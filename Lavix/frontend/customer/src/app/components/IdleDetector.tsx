@@ -2,6 +2,7 @@ import { useState, useEffect, useRef } from "react";
 import { useNavigate, useLocation } from "react-router-dom";
 import { loadDetector, runDetection } from "../detectors/DetectorManager";
 import { FaceLandmarkerResult } from "@mediapipe/tasks-vision";
+import { useTryOnActivity } from "../context/TryOnActivityContext";
 
 // Served from this VM (same file as the marketing hero, already remuxed with
 // faststart so it streams instead of downloading in full first). The GCS copy
@@ -25,12 +26,29 @@ export function IdleDetector() {
 
   useEffect(() => { adVisibleRef.current = isAdVisible; }, [isAdVisible]);
 
-  const excluded = location.pathname.includes("/camera") ||
+  const { isTryOnActive } = useTryOnActivity();
+
+  // The Virtual Try-On mirror is a modal, so the URL still reads as a product
+  // page while it is open — the path checks below cannot see it. Without
+  // isTryOnActive the idle timer keeps running underneath the mirror and drags
+  // the customer back to /home mid-session.
+  const excluded = isTryOnActive ||
+                   location.pathname.includes("/camera") ||
                    location.pathname.includes("/admin");
 
   // ── CAMERA + DETECTION ──────────────────────────────────────────────────
   useEffect(() => {
-    if (excluded) return;
+    if (excluded) {
+      // Drop any pending idle timer and dismiss the ad if it is already up, so
+      // entering the mirror never leaves a countdown or overlay running behind it.
+      if (timerRef.current) { clearTimeout(timerRef.current); timerRef.current = null; }
+      if (adVisibleRef.current) {
+        adVisibleRef.current = false;
+        setIsAdVisible(false);
+        document.body.style.cursor = "default";
+      }
+      return;
+    }
     mountedRef.current = true;
     loadDetector("face")
       .then(() => { if (mountedRef.current) initCamera(); })

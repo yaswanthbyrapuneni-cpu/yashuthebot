@@ -25,6 +25,7 @@ import Webcam from "react-webcam";
 import { Header } from "../components/Header";
 import FeedbackModal from "../components/FeedbackModal";
 import { convertUrlToBase64, requestVirtualTryOn, PRODUCT_CATEGORIES } from "../services/api";
+import { useTryOnActivity } from "../context/TryOnActivityContext";
 
 export interface ColorOption {
   name: string;
@@ -127,6 +128,15 @@ export function ProductDetailsPage({
   const webcamRef = useRef<Webcam>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const mirrorRef = useRef<HTMLDivElement>(null);
+
+  // Suspends the idle-ad detector while the mirror is open. Driven by an effect
+  // rather than the open/close handlers so it also unwinds if this page
+  // unmounts with the modal still open.
+  const { setTryOnActive } = useTryOnActivity();
+  useEffect(() => {
+    setTryOnActive(isTryOnModalOpen);
+    return () => setTryOnActive(false);
+  }, [isTryOnModalOpen, setTryOnActive]);
 
   const [modalCameraCountdown, setModalCameraCountdown] = useState<number | null>(null);
 

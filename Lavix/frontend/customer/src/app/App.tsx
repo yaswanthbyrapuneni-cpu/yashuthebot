@@ -14,6 +14,7 @@ import { GarmentDetailsPage } from "./pages/GarmentDetailsPage";
 import SecurityMonitor from "./components/SecurityMonitor";
 import { SecurityBlackScreen } from "./components/SecurityBlackScreen";
 import { IdleDetector } from "./components/IdleDetector";
+import { TryOnActivityProvider } from "./context/TryOnActivityContext";
 
 export default function App() {
   const [securityMonitoring, setSecurityMonitoring] = useState(false);
@@ -26,6 +27,7 @@ export default function App() {
 
   return (
     <BrowserRouter basename="/tryon">
+      <TryOnActivityProvider>
       <SecurityMonitor
         isActive={true}
         onSecurityStateChange={handleSecurityStateChange}
@@ -56,6 +58,7 @@ export default function App() {
         <Route path="/womens/:id/camera/camera-view" element={<CameraViewPage category="Womens Collection" categoryLink="/womens" />} />
         <Route path="/garment/:id/camera/camera-view" element={<CameraViewPage category="Garments Collection" categoryLink="/home" />} />
       </Routes>
+      </TryOnActivityProvider>
     </BrowserRouter>
   );
 }
