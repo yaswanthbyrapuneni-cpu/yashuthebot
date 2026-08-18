@@ -3,6 +3,7 @@ from flask_cors import CORS
 import os
 import json
 import logging
+import threading
 import requests
 import google.auth
 import google.auth.transport.requests
@@ -40,25 +41,31 @@ VERTEX_REGION = os.getenv('VERTEX_REGION', 'us-central1')
 VERTEX_TIMEOUT = int(os.getenv('VERTEX_TIMEOUT', '90'))
 
 _vertex_credentials = None
+# Workers are threaded (see gunicorn.conf.py), so concurrent try-ons would
+# otherwise build credentials twice and call refresh() on the same object
+# simultaneously.
+_vertex_credentials_lock = threading.Lock()
+
 
 def get_vertex_access_token():
     global _vertex_credentials
     try:
-        if _vertex_credentials is None:
-            creds_json = os.getenv('GOOGLE_APPLICATION_CREDENTIALS_JSON')
-            if creds_json:
-                creds_dict = json.loads(creds_json)
-                _vertex_credentials = service_account.Credentials.from_service_account_info(
-                    creds_dict,
-                    scopes=['https://www.googleapis.com/auth/cloud-platform']
-                )
-            else:
-                _vertex_credentials, _ = google.auth.default(
-                    scopes=['https://www.googleapis.com/auth/cloud-platform']
-                )
-        auth_req = google.auth.transport.requests.Request()
-        _vertex_credentials.refresh(auth_req)
-        return _vertex_credentials.token
+        with _vertex_credentials_lock:
+            if _vertex_credentials is None:
+                creds_json = os.getenv('GOOGLE_APPLICATION_CREDENTIALS_JSON')
+                if creds_json:
+                    creds_dict = json.loads(creds_json)
+                    _vertex_credentials = service_account.Credentials.from_service_account_info(
+                        creds_dict,
+                        scopes=['https://www.googleapis.com/auth/cloud-platform']
+                    )
+                else:
+                    _vertex_credentials, _ = google.auth.default(
+                        scopes=['https://www.googleapis.com/auth/cloud-platform']
+                    )
+            auth_req = google.auth.transport.requests.Request()
+            _vertex_credentials.refresh(auth_req)
+            return _vertex_credentials.token
     except Exception as e:
         raise RuntimeError(f"Vertex AI credentials error: {e}")
 
@@ -81,10 +88,16 @@ def process_local_tryon(person_b64: str, garments_b64: list) -> str:
         
         current_img = person_img.copy()
 
-        for g_b64 in garments_b64:
-            g_b64_clean = extract_clean_b64(g_b64)
-            g_bytes = base64.b64decode(g_b64_clean)
-            g_img = Image.open(io.BytesIO(g_bytes)).convert("RGBA")
+        for g_index, g_b64 in enumerate(garments_b64):
+            try:
+                g_b64_clean = extract_clean_b64(g_b64)
+                g_bytes = base64.b64decode(g_b64_clean)
+                g_img = Image.open(io.BytesIO(g_bytes)).convert("RGBA")
+            except Exception as g_err:
+                # A single unreadable garment must not lose the whole render;
+                # the person image and any other garments are still usable.
+                logger.warning(f"Skipping unreadable garment {g_index}: {g_err}")
+                continue
             
             # Remove background using rembg if available, otherwise fallback
             g_img_clean = g_img
@@ -138,11 +151,17 @@ def process_local_tryon(person_b64: str, garments_b64: list) -> str:
             current_img.paste(g_resized, (pos_x, pos_y), g_resized)
 
         buffered = io.BytesIO()
-        current_img.convert("RGB").save(buffered, format="PNG")
+        # JPEG, not PNG: these are photographs, and a 1080x1920 PNG is several
+        # MB before base64 inflates it another third -- straight down a kiosk
+        # link measured at ~5 Mbps.
+        current_img.convert("RGB").save(buffered, format="JPEG", quality=90, optimize=True)
         return base64.b64encode(buffered.getvalue()).decode("utf-8")
     except Exception as e:
+        # Deliberately re-raised. This used to return person_b64, which the
+        # endpoint wrapped and reported as success:true -- the customer got
+        # their own photo back with no garment and no indication of failure.
         logger.error(f"Local try-on compositor error: {e}")
-        return person_b64
+        raise RuntimeError(f"Local compositor failed: {e}") from e
 
 
 def convert_to_clean_rgb_b64(b64_str):
@@ -167,6 +186,33 @@ def convert_to_clean_rgb_b64(b64_str):
 @app.route('/health', methods=['GET'])
 def health():
     return jsonify({'status': 'ok', 'service': 'lavix-backend'}), 200
+
+
+def _local_tryon_response(person_b64, garments_b64, reason):
+    """
+    Fallback path when Vertex is unavailable. If the compositor also fails there
+    is no usable image to return, so report failure rather than handing back the
+    untouched input as if it were a render.
+    """
+    try:
+        res_b64 = process_local_tryon(person_b64, garments_b64)
+    except Exception as local_err:
+        logger.error(f"Local compositor also failed after Vertex fallback: {local_err}")
+        return jsonify({
+            'success': False,
+            'error': 'Could not generate the try-on. Please retake the photo and try again.',
+            'fallback_reason': reason,
+        }), 502
+
+    return jsonify({
+        'success': True,
+        'result_image': f"data:image/jpeg;base64,{res_b64}",
+        'mode': 'local',
+        'fallback_reason': reason,
+    }), 200
+
+
+MAX_GARMENTS_PER_REQUEST = 5
 
 
 @app.route('/try-on', methods=['POST'])
@@ -195,6 +241,14 @@ def try_on():
 
         if not garments_b64:
             return jsonify({'success': False, 'error': 'No garments selected for try-on'}), 400
+
+        # Garments are applied sequentially, each its own Vertex call of up to
+        # VERTEX_TIMEOUT. Without a cap a caller can guarantee a worker timeout.
+        if len(garments_b64) > MAX_GARMENTS_PER_REQUEST:
+            return jsonify({
+                'success': False,
+                'error': f'Too many garments in one request (max {MAX_GARMENTS_PER_REQUEST}).'
+            }), 400
 
         logger.info(f"Starting virtual try-on processing for {len(garments_b64)} garment(s)")
 
@@ -270,13 +324,7 @@ def try_on():
                 f"Vertex AI timed out after {VERTEX_TIMEOUT}s. Falling back to local compositor "
                 "(result will be a flat overlay, not a fitted render)."
             )
-            res_b64 = process_local_tryon(person_b64, garments_b64)
-            return jsonify({
-                'success': True,
-                'result_image': f"data:image/png;base64,{res_b64}",
-                'mode': 'local',
-                'fallback_reason': 'Vertex AI timed out'
-            }), 200
+            return _local_tryon_response(person_b64, garments_b64, 'Vertex AI timed out')
 
         except Exception as v_err:
             # Log at error level with the real message — this used to be a warning
@@ -285,13 +333,7 @@ def try_on():
                 f"Vertex AI try-on failed: {v_err}. Falling back to local compositor "
                 "(result will be a flat overlay, not a fitted render)."
             )
-            res_b64 = process_local_tryon(person_b64, garments_b64)
-            return jsonify({
-                'success': True,
-                'result_image': f"data:image/png;base64,{res_b64}",
-                'mode': 'local',
-                'fallback_reason': str(v_err)[:200]
-            }), 200
+            return _local_tryon_response(person_b64, garments_b64, str(v_err)[:200])
 
     except Exception as e:
         logger.error(f"Try-on error: {e}")

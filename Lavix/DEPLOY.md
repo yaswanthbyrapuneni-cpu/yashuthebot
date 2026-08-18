@@ -148,6 +148,36 @@ gsutil -h "Cache-Control:public, max-age=86400" \
 Roll back with:
 `gsutil cp gs://vastra-assets/vastralanakara_AD.backup.mp4 gs://vastra-assets/vastralanakara_AD.mp4`
 
+## Testing
+
+Two layers, because the two classes of bug that actually reach production here
+are different.
+
+**Unit tests** — image pipeline and `/try-on` contract. Run before pushing:
+
+```bash
+cd backend
+pip install -r requirements-dev.txt
+python -m pytest            # ~2 min (rembg loads a model on first run)
+```
+
+**Smoke test** — run after *every* deploy, against the live stack:
+
+```bash
+./scripts/smoke-test.sh                       # defaults to https://www.lavix.in
+BASE=https://staging.example.com ./scripts/smoke-test.sh
+```
+
+Exits non-zero on failure, so it can gate a deploy script.
+
+Every bug this project has actually shipped was a **configuration** bug, not a
+logic bug — a timeout equal to the one above it, a redirect built from the wrong
+Host header, two services claiming port 443, an endpoint missing from an nginx
+regex. Unit tests cannot see any of those. The smoke test is what catches them,
+which is why it asserts on the deployed system rather than mocks.
+
+Known-good baseline: **21 passed, 0 failed**.
+
 ## Routing gotcha
 
 nginx sends only paths matching
