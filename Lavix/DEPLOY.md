@@ -148,6 +148,24 @@ gsutil -h "Cache-Control:public, max-age=86400" \
 Roll back with:
 `gsutil cp gs://vastra-assets/vastralanakara_AD.backup.mp4 gs://vastra-assets/vastralanakara_AD.mp4`
 
+## Shared VM: Caddy owns 80/443
+
+This VM also hosts **SenseMinds** (senseminds360.com). A single Caddy container
+owns ports 80 and 443 and routes by hostname; Lavix, the marketing site and
+SenseMinds all sit behind it on the Docker network.
+
+**No service in this compose file may publish 80 or 443.** The frontend uses
+`expose:`, not `ports:`. Adding a `ports: 80:80` mapping back takes
+senseminds360.com down — that is how the two projects collided the first time.
+
+Caddy proxies to the frontend container's **443**, so nginx still terminates TLS
+inside the container and the `/mnt/data/ssl` mount is still required.
+
+Because Caddy forwards its own hostname upstream, nginx must not build absolute
+redirects from the `Host` header — see `absolute_redirect off` in
+`frontend/customer/nginx.conf`. Without it, `/tryon` redirects browsers to
+`https://lavix-frontend-1/tryon/` and they get NXDOMAIN.
+
 ## Testing
 
 Two layers, because the two classes of bug that actually reach production here
