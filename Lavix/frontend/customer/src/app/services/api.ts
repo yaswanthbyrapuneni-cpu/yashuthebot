@@ -76,23 +76,57 @@ export async function checkBackendHealth(): Promise<{ status: string; service?: 
 }
 
 /**
- * Fetches all garments from the backend.
+ * The catalogue only changes when an admin uploads or deletes, but every page
+ * mount was re-fetching it -- and React Router remounts on every navigation. So
+ * returning from a try-on showed a spinner while Flask round-tripped to
+ * Supabase again. Cache it, and let the admin screens invalidate explicitly.
  */
-export async function getGarments(): Promise<Garment[]> {
-  try {
-    const res = await fetch(`${API_BASE_URL}/garments`, { method: "GET" });
-    if (!res.ok) throw new Error(`HTTP ${res.status}`);
-    const data: Garment[] = await res.json();
-    return data.map((item) => ({
-      ...item,
-      imageUrl: item.imageUrl && item.imageUrl.startsWith("/")
-        ? `${API_BASE_URL}${item.imageUrl}`
-        : item.imageUrl
-    }));
-  } catch (err) {
-    console.error("Failed to fetch garments from backend:", err);
-    return [];
+const GARMENTS_TTL_MS = 60_000;
+let garmentsCache: { data: Garment[]; at: number } | null = null;
+let garmentsInFlight: Promise<Garment[]> | null = null;
+
+export function invalidateGarmentsCache() {
+  garmentsCache = null;
+  garmentsInFlight = null;
+}
+
+/**
+ * Fetches all garments from the backend.
+ *
+ * @param force skip the cache (admin screens, after a mutation)
+ */
+export async function getGarments(force = false): Promise<Garment[]> {
+  if (!force && garmentsCache && Date.now() - garmentsCache.at < GARMENTS_TTL_MS) {
+    return garmentsCache.data;
   }
+  // Several components can mount at once; share one request between them
+  // rather than firing a duplicate per subscriber.
+  if (!force && garmentsInFlight) return garmentsInFlight;
+
+  const request = (async () => {
+    try {
+      const res = await fetch(`${API_BASE_URL}/garments`, { method: "GET" });
+      if (!res.ok) throw new Error(`HTTP ${res.status}`);
+      const data: Garment[] = await res.json();
+      const mapped = data.map((item) => ({
+        ...item,
+        imageUrl: item.imageUrl && item.imageUrl.startsWith("/")
+          ? `${API_BASE_URL}${item.imageUrl}`
+          : item.imageUrl
+      }));
+      garmentsCache = { data: mapped, at: Date.now() };
+      return mapped;
+    } catch (err) {
+      console.error("Failed to fetch garments from backend:", err);
+      // Serve a stale catalogue rather than an empty kiosk if the network blips.
+      return garmentsCache?.data ?? [];
+    } finally {
+      garmentsInFlight = null;
+    }
+  })();
+
+  if (!force) garmentsInFlight = request;
+  return request;
 }
 
 /**
@@ -112,6 +146,7 @@ export async function uploadGarment(data: {
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify(data),
     });
+    invalidateGarmentsCache();  // catalogue changed; kiosk must not serve stale
     return await res.json();
   } catch (err: any) {
     return {
@@ -276,6 +311,7 @@ export async function deleteGarment(id: string): Promise<{ success: boolean; err
   try {
     const res = await fetch(`${API_BASE_URL}/garments/${id}`, { method: "DELETE" });
     if (!res.ok) throw new Error(`HTTP ${res.status}`);
+    invalidateGarmentsCache();  // catalogue changed; kiosk must not serve stale
     return await res.json();
   } catch (err: any) {
     console.error("Failed to delete garment:", err);

@@ -928,7 +928,9 @@ function UploadGarmentsView() {
 
   const fetchCatalog = async () => {
     setLoadingList(true);
-    const list = await getGarments();
+    // force: the admin is managing this catalogue and must never act on a
+    // cached copy that predates their own upload or delete.
+    const list = await getGarments(true);
     setGarmentsList(list);
     setLoadingList(false);
   };

@@ -14,9 +14,15 @@ export function Home() {
   const [activeTab, setActiveTab] = useState<"all" | "women" | "men">("all");
   const [searchQuery, setSearchQuery] = useState("");
 
-  const fetchLiveCatalog = () => {
-    setLoadingGarments(true);
-    getGarments().then((list) => {
+  const fetchLiveCatalog = (force = false) => {
+    // Only show the spinner when there is genuinely nothing to display. On a
+    // cache hit this resolves synchronously enough that flipping loading on
+    // would just flash the spinner during back-navigation.
+    setBackendGarments((current) => {
+      if (current.length === 0) setLoadingGarments(true);
+      return current;
+    });
+    getGarments(force).then((list) => {
       setBackendGarments(list);
       setLoadingGarments(false);
     });
