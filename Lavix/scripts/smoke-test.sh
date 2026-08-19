@@ -20,6 +20,26 @@ ok()   { printf '  \033[32mPASS\033[0m  %s\n' "$1"; PASS=$((PASS+1)); }
 bad()  { printf '  \033[31mFAIL\033[0m  %s\n' "$1"; printf '        %s\n' "${2:-}"; FAIL=$((FAIL+1)); }
 head_() { printf '\n\033[1m%s\033[0m\n' "$1"; }
 
+# Wait for the backend to finish booting before asserting anything. It warms the
+# rembg model during startup, so readiness lags `docker compose up` by longer
+# than a fixed sleep reliably covers -- which showed up as whichever backend
+# check happened to run first failing at random.
+READY_TIMEOUT="${READY_TIMEOUT:-90}"
+printf 'Waiting for backend readiness (up to %ss)' "$READY_TIMEOUT"
+ready=0
+for _ in $(seq 1 "$READY_TIMEOUT"); do
+  if curl -sk --max-time 5 "$BASE/health" 2>/dev/null | grep -q '"status"'; then
+    ready=1; break
+  fi
+  printf '.'; sleep 1
+done
+if [ "$ready" = "1" ]; then
+  printf ' ready\n'
+else
+  printf '\n\033[31mBackend never became ready after %ss -- aborting.\033[0m\n' "$READY_TIMEOUT"
+  exit 1
+fi
+
 head_ "Routing"
 
 code=$("${CURL[@]}" -o /dev/null -w '%{http_code}' "$BASE/")
