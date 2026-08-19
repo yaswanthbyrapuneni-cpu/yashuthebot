@@ -20,6 +20,17 @@ ok()   { printf '  \033[32mPASS\033[0m  %s\n' "$1"; PASS=$((PASS+1)); }
 bad()  { printf '  \033[31mFAIL\033[0m  %s\n' "$1"; printf '        %s\n' "${2:-}"; FAIL=$((FAIL+1)); }
 head_() { printf '\n\033[1m%s\033[0m\n' "$1"; }
 
+# Fetch into a variable rather than piping curl onward.
+#
+# `curl ... | grep -q` looks harmless but races: grep -q exits on the first
+# match and closes the pipe, curl dies of SIGPIPE, and with `set -o pipefail`
+# the pipeline reports failure even though the content matched. That produced
+# phantom failures that wandered between endpoints run to run and looked like a
+# flaky backend.
+fetch()  { "${CURL[@]}" "$@"; }
+has()    { case "$2" in *"$1"*) return 0;; *) return 1;; esac; }
+has_i()  { local n h; n=$(printf '%s' "$1" | tr 'A-Z' 'a-z'); h=$(printf '%s' "$2" | tr 'A-Z' 'a-z'); has "$n" "$h"; }
+
 # Wait for the backend to finish booting before asserting anything. It warms the
 # rembg model during startup, so readiness lags `docker compose up` by longer
 # than a fixed sleep reliably covers -- which showed up as whichever backend
@@ -28,7 +39,8 @@ READY_TIMEOUT="${READY_TIMEOUT:-90}"
 printf 'Waiting for backend readiness (up to %ss)' "$READY_TIMEOUT"
 ready=0
 for _ in $(seq 1 "$READY_TIMEOUT"); do
-  if curl -sk --max-time 5 "$BASE/health" 2>/dev/null | grep -q '"status"'; then
+  probe=$(curl -sk --max-time 5 "$BASE/health" 2>/dev/null || true)
+  if has '"status"' "$probe"; then
     ready=1; break
   fi
   printf '.'; sleep 1
@@ -49,16 +61,13 @@ code=$("${CURL[@]}" -o /dev/null -w '%{http_code}' "$BASE/tryon/")
 [ "$code" = "200" ] && ok "kiosk returns 200" || bad "kiosk" "got HTTP $code"
 
 # The two apps must not be serving each other's HTML.
-if "${CURL[@]}" "$BASE/" | grep -qi "Virtual Trial Room"; then
-  ok "/ serves the marketing site"
-else
-  bad "/ content" "marketing markers missing"
-fi
-if "${CURL[@]}" "$BASE/tryon/" | grep -qi "Try-On Fashion Kiosk"; then
-  ok "/tryon serves the kiosk"
-else
-  bad "/tryon content" "kiosk markers missing"
-fi
+body=$(fetch "$BASE/")
+has_i "virtual trial room" "$body" \
+  && ok "/ serves the marketing site" || bad "/ content" "marketing markers missing"
+
+body=$(fetch "$BASE/tryon/")
+has_i "try-on fashion kiosk" "$body" \
+  && ok "/tryon serves the kiosk" || bad "/tryon content" "kiosk markers missing"
 
 # Regression: nginx built this from the proxied Host header and leaked the
 # container name, so browsers got DNS_PROBE_FINISHED_NXDOMAIN.
@@ -71,20 +80,28 @@ esac
 
 head_ "Backend"
 
-"${CURL[@]}" "$BASE/health" | grep -q '"status": *"ok"' \
-  && ok "/health" || bad "/health" "no ok status"
+body=$(fetch "$BASE/health")
+has '"status"' "$body" && has '"ok"' "$body" \
+  && ok "/health" || bad "/health" "unexpected: $(printf '%s' "$body" | head -c 120)"
 
-if "${CURL[@]}" "$BASE/garments" | head -c1 | grep -q '\['; then
-  ok "/garments returns a JSON array"
-else
-  bad "/garments" "not a JSON array (HTML error page?)"
-fi
+body=$(fetch "$BASE/garments")
+case "$body" in
+  \[*) ok "/garments returns a JSON array" ;;
+  *)   bad "/garments" "not a JSON array: $(printf '%s' "$body" | head -c 120)" ;;
+esac
 
 # Was silently unrouted for a long time: alerts 404'd at the proxy.
-if "${CURL[@]}" "$BASE/security-test" | grep -q smtp_configured; then
+body=$(fetch "$BASE/security-test")
+if has smtp_configured "$body"; then
   ok "/security-test routed to Flask"
-  "${CURL[@]}" "$BASE/security-test" | grep -q '"smtp_configured": *"\\u2705"' \
-    && ok "SMTP credentials present" || bad "SMTP credentials" "not configured on the VM"
+  # Flask escapes non-ASCII, so this arrives as "✅" rather than a literal
+  # check mark. Strip spaces and backslashes and accept either encoding.
+  compact=$(printf '%s' "$body" | tr -d ' \\')
+  if has 'smtp_configured":"u2705' "$compact" || has 'smtp_configured":"✅' "$compact"; then
+    ok "SMTP credentials present"
+  else
+    bad "SMTP credentials" "not configured on the VM"
+  fi
 else
   bad "/security-test" "not routed to Flask -- check the nginx location regex"
 fi
@@ -93,7 +110,8 @@ head_ "Media"
 
 # Accept-Ranges is advertised on the full response, not echoed on a 206, so
 # this has to be a HEAD without a Range header.
-"${CURL[@]}" -I "$BASE/intro.mp4" | grep -qi "accept-ranges: bytes" \
+hdrs=$(fetch -I "$BASE/intro.mp4")
+has_i "accept-ranges: bytes" "$hdrs" \
   && ok "video advertises range support" || bad "video ranges" "no Accept-Ranges on HEAD"
 
 # And confirm a range request is actually honoured.
@@ -102,11 +120,10 @@ code=$("${CURL[@]}" -o /dev/null -w '%{http_code}' -r 0-99 "$BASE/intro.mp4")
   || bad "video ranges" "range request returned HTTP $code, expected 206"
 
 # moov must precede mdat or the browser downloads the whole file before playing.
-if "${CURL[@]}" -r 0-1200 "$BASE/intro.mp4" | tr -c '[:print:]' '.' | grep -q moov; then
-  ok "video is faststart (moov at front)"
-else
-  bad "video faststart" "moov not near the start -- it cannot stream"
-fi
+head_bytes=$(fetch -r 0-1200 "$BASE/intro.mp4" | tr -c '[:print:]' '.')
+has moov "$head_bytes" \
+  && ok "video is faststart (moov at front)" \
+  || bad "video faststart" "moov not near the start -- it cannot stream"
 
 for asset in "/tryon/ad-poster.jpg" "/intro-poster.jpg" "/tryon/siren.mp3" "/favicon.ico"; do
   code=$("${CURL[@]}" -o /dev/null -w '%{http_code}' "$BASE$asset")
@@ -122,11 +139,10 @@ resp=$("${CURL[@]}" -X POST -H 'Content-Type: application/json' -d "$body" "$BAS
 elapsed=$(( $(date +%s) - start ))
 
 # The exact production failure: an HTML gateway page hitting JSON.parse.
-if printf '%s' "$resp" | head -c1 | grep -q '{'; then
-  ok "try-on returns JSON, not an HTML error page"
-else
-  bad "try-on response" "not JSON: $(printf '%s' "$resp" | head -c 120)"
-fi
+case "$resp" in
+  \{*) ok "try-on returns JSON, not an HTML error page" ;;
+  *)   bad "try-on response" "not JSON: $(printf '%s' "$resp" | head -c 120)" ;;
+esac
 
 # Two separate concerns. The hard limit is the 150s worker timeout. The soft
 # one caught a real regression: rembg downloading its 176MB model on the first
@@ -140,14 +156,14 @@ else
   ok "try-on completed in ${elapsed}s"
 fi
 
-printf '%s' "$resp" | grep -q '"mode"' \
+has '"mode"' "$resp" \
   && ok "response declares an engine mode" || bad "mode field" "missing -- UI cannot flag degraded output"
 
 # The probe image is a 1x1 pixel, which Vertex legitimately rejects with a 400.
 # That still proves reachability and working credentials, so only treat
 # auth/quota/connectivity failures as real -- those are the ones that silently
 # degrade every customer render to the flat compositor.
-if printf '%s' "$resp" | grep -q '"mode": *"vertex"'; then
+if has '"mode":"vertex"' "${resp// /}"; then
   ok "Vertex AI is the active engine"
 else
   reason=$(printf '%s' "$resp" | sed -n 's/.*"fallback_reason": *"\([^"]*\)".*/\1/p')
@@ -164,7 +180,7 @@ fi
 # Malformed input must be refused, not echoed back as a successful render.
 resp=$("${CURL[@]}" -X POST -H 'Content-Type: application/json' \
        -d '{"person_image":"@@@bad@@@","garment_image":"@@@bad@@@"}' "$BASE/try-on")
-printf '%s' "$resp" | grep -q '"success": *false' \
+has '"success":false' "${resp// /}" \
   && ok "malformed input rejected" || bad "malformed input" "did not report failure"
 
 printf '\n\033[1m%d passed, %d failed\033[0m\n' "$PASS" "$FAIL"
