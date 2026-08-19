@@ -108,9 +108,17 @@ else
   bad "try-on response" "not JSON: $(printf '%s' "$resp" | head -c 120)"
 fi
 
-# gunicorn timeout is 150s; anything close means the hierarchy is wrong again.
-[ "$elapsed" -lt 140 ] && ok "try-on completed in ${elapsed}s" \
-  || bad "try-on duration" "${elapsed}s -- near the worker timeout"
+# Two separate concerns. The hard limit is the 150s worker timeout. The soft
+# one caught a real regression: rembg downloading its 176MB model on the first
+# request after every rebuild put the first customer at 130s, twenty seconds
+# from a killed worker. A warm, healthy request is single-digit seconds.
+if [ "$elapsed" -ge 140 ]; then
+  bad "try-on duration" "${elapsed}s -- at the worker timeout, requests are being killed"
+elif [ "$elapsed" -ge 60 ]; then
+  bad "try-on duration" "${elapsed}s -- far above normal; is a model downloading on first use?"
+else
+  ok "try-on completed in ${elapsed}s"
+fi
 
 printf '%s' "$resp" | grep -q '"mode"' \
   && ok "response declares an engine mode" || bad "mode field" "missing -- UI cannot flag degraded output"
