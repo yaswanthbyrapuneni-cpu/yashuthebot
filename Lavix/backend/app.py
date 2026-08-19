@@ -70,6 +70,33 @@ def get_vertex_access_token():
         raise RuntimeError(f"Vertex AI credentials error: {e}")
 
 
+_rembg_session = None
+_rembg_lock = threading.Lock()
+
+
+def get_rembg_session():
+    """
+    Cache the u2net session. rembg.remove() without an explicit session builds
+    a new one per call, loading the 176MB model into onnxruntime every time --
+    measured at ~130s per try-on. Built once here and reused.
+
+    Returns None if rembg is unavailable, so callers fall back to the cheap
+    luminance-based background removal instead of failing.
+    """
+    global _rembg_session
+    if _rembg_session is None:
+        with _rembg_lock:
+            if _rembg_session is None:  # re-check: another thread may have won
+                try:
+                    from rembg import new_session
+                    _rembg_session = new_session("u2net")
+                    logger.info("rembg u2net session ready")
+                except Exception as e:
+                    logger.warning(f"rembg unavailable, using luminance fallback: {e}")
+                    _rembg_session = False  # sentinel: tried and failed
+    return _rembg_session or None
+
+
 def process_local_tryon(person_b64: str, garments_b64: list) -> str:
     """
     High quality local Virtual Try-On compositor using PIL & NumPy.
@@ -102,9 +129,11 @@ def process_local_tryon(person_b64: str, garments_b64: list) -> str:
             # Remove background using rembg if available, otherwise fallback
             g_img_clean = g_img
             try:
+                session = get_rembg_session()
+                if session is None:
+                    raise RuntimeError("rembg session unavailable")
                 import rembg
-                g_img_clean = rembg.remove(g_img)
-                logger.info("Successfully removed background using rembg")
+                g_img_clean = rembg.remove(g_img, session=session)
             except Exception as re_err:
                 logger.warning(f"Could not use rembg for background removal, falling back: {re_err}")
                 g_np = np.array(g_img)
@@ -1491,6 +1520,10 @@ def book_demo():
 
 # Run at module level so gunicorn picks it up on import
 check_supabase_connection()
+
+# Build the background-removal session during worker startup rather than inside
+# the first customer's try-on request.
+get_rembg_session()
 
 if __name__ == '__main__':
     port = int(os.environ.get('PORT', 5000))
