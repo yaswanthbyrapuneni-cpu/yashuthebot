@@ -26,6 +26,8 @@ import { Header } from "../components/Header";
 import FeedbackModal from "../components/FeedbackModal";
 import { convertUrlToBase64, requestVirtualTryOn, PRODUCT_CATEGORIES } from "../services/api";
 import { useTryOnActivity } from "../context/TryOnActivityContext";
+import { loadDetector, runDetection } from "../detectors/DetectorManager";
+import { evaluateFraming, FramingHint } from "../utils/framing";
 
 export interface ColorOption {
   name: string;
@@ -129,6 +131,16 @@ export function ProductDetailsPage({
   const fileInputRef = useRef<HTMLInputElement>(null);
   const mirrorRef = useRef<HTMLDivElement>(null);
 
+  // Live positioning guidance. Vertex needs a full-body, front-facing photo;
+  // the kiosk webcam otherwise tends to capture a head-and-shoulders crop, and
+  // Vertex still renders a full-length garment with no body to put it on --
+  // which is what produced garments floating in mid-air with nothing under
+  // them. Face size relative to the frame is a reliable stand-in for distance,
+  // so tell the customer to reposition before they press the button rather
+  // than only finding out after a render comes back wrong.
+  const [framingHint, setFramingHint] = useState<FramingHint | null>(null);
+  const framingRafRef = useRef<number>(0);
+
   // Suspends the idle-ad detector while the mirror is open. Driven by an effect
   // rather than the open/close handlers so it also unwinds if this page
   // unmounts with the modal still open.
@@ -139,6 +151,44 @@ export function ProductDetailsPage({
   }, [isTryOnModalOpen, setTryOnActive]);
 
   const [modalCameraCountdown, setModalCameraCountdown] = useState<number | null>(null);
+
+  // Runs while the live webcam preview is showing (not once a photo is
+  // captured or a countdown is underway) and updates framingHint every frame.
+  useEffect(() => {
+    const active = isTryOnModalOpen && isCameraActive && !faceImage && modalCameraCountdown === null;
+    if (!active) {
+      cancelAnimationFrame(framingRafRef.current);
+      setFramingHint(null);
+      return;
+    }
+
+    let cancelled = false;
+
+    loadDetector("face")
+      .then(() => {
+        if (cancelled) return;
+        const tick = () => {
+          const video = webcamRef.current?.video;
+          if (video && video.readyState >= 2) {
+            try {
+              const result = runDetection("face", video) as any;
+              setFramingHint(evaluateFraming(result?.faceLandmarks?.[0]));
+            } catch {
+              // A transient detector hiccup shouldn't crash the mirror; try
+              // again next frame.
+            }
+          }
+          framingRafRef.current = requestAnimationFrame(tick);
+        };
+        tick();
+      })
+      .catch((err) => console.error("[Framing] detector load failed:", err));
+
+    return () => {
+      cancelled = true;
+      cancelAnimationFrame(framingRafRef.current);
+    };
+  }, [isTryOnModalOpen, isCameraActive, faceImage, modalCameraCountdown]);
 
   // Customer Feedback States
   const [isFeedbackOpen, setIsFeedbackOpen] = useState(false);
@@ -603,6 +653,26 @@ export function ProductDetailsPage({
                     className="w-full h-full object-cover"
                     videoConstraints={{ facingMode: "user" }}
                   />
+
+                  {/* Live positioning guidance */}
+                  {framingHint && modalCameraCountdown === null && (
+                    <div className="absolute top-28 left-1/2 -translate-x-1/2 z-20 pointer-events-none">
+                      <div
+                        className={`flex items-center gap-2.5 px-5 py-2.5 rounded-full backdrop-blur-md border shadow-2xl transition-colors duration-300 ${
+                          framingHint.ready
+                            ? "bg-emerald-500/90 border-emerald-300/40 text-black"
+                            : "bg-black/70 border-white/20 text-white"
+                        }`}
+                      >
+                        <span
+                          className={`w-2 h-2 rounded-full shrink-0 ${
+                            framingHint.ready ? "bg-black" : "bg-amber-400 animate-pulse"
+                          }`}
+                        />
+                        <span className="text-sm font-semibold whitespace-nowrap">{framingHint.message}</span>
+                      </div>
+                    </div>
+                  )}
 
                   {/* 3-2-1 Countdown Overlay */}
                   {modalCameraCountdown !== null && (
