@@ -30,6 +30,39 @@ The **marketing site** (`www.lavix.in` root) is a **separate repository**
 (`lavix-website`), cloned as a sibling of this one on the deploy VM. It is not
 part of this repo and `git pull` here does not update it.
 
+## Project structure
+
+```
+Lavix/
+├── backend/
+│   ├── app.py                  Try-on (Vertex AI + fallback), garments, book-demo, admin auth
+│   ├── security_routes.py      Motion/face alert → email + Twilio call
+│   ├── security_schema.sql     Supabase schema: security_settings, security_events
+│   ├── schema.sql              Supabase schema: garments, feedback, admin_users
+│   ├── tests/                  pytest — image pipeline + /try-on contract
+│   ├── gunicorn.conf.py        Worker timeout hierarchy — see comments before touching
+│   └── Dockerfile
+│
+├── frontend/
+│   ├── customer/                The deployed app — kiosk + admin panel, one SPA
+│   │   └── src/app/
+│   │       ├── pages/            Home, collections, product details, camera, /admin
+│   │       ├── components/       Header, SecurityMonitor, IdleDetector, modals
+│   │       ├── context/           TryOnActivityContext — suspends the idle ad mid try-on
+│   │       ├── detectors/         MediaPipe face landmarker wrapper
+│   │       ├── services/api.ts    All backend calls, incl. the garment-list cache
+│   │       └── utils/framing.ts   Live positioning guidance shown in the mirror
+│   │
+│   ├── admin/                   Not deployed — see the table above
+│   └── package.json             Legacy workspace wrapper for admin+customer; docker-compose
+│                                 builds frontend/customer directly and ignores this
+│
+├── scripts/smoke-test.sh       Post-deploy check against the live stack
+├── docker-compose.yml          backend + frontend/customer + ../lavix-website (marketing)
+├── DEPLOY.md                   VM deployment runbook
+└── README.md                   This file
+```
+
 ## Local development
 
 **Backend**
