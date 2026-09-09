@@ -1,6 +1,7 @@
 import { useState, useRef, useCallback, useEffect } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import Webcam from "react-webcam";
+import { SwitchCamera } from "lucide-react";
 import { Header } from "../components/Header";
 
 export function CameraViewPage({ category, categoryLink }: { category: string, categoryLink: string }) {
@@ -8,6 +9,8 @@ export function CameraViewPage({ category, categoryLink }: { category: string, c
   const webcamRef = useRef<Webcam>(null);
   const containerRef = useRef<HTMLDivElement | null>(null);
   const [countdown, setCountdown] = useState<number | null>(null);
+  // WhatsApp-style flip: front by default, one tap swaps to the rear camera.
+  const [facingMode, setFacingMode] = useState<"user" | "environment">("user");
 
   useEffect(() => {
     const el = containerRef.current;
@@ -73,8 +76,16 @@ export function CameraViewPage({ category, categoryLink }: { category: string, c
             ref={webcamRef}
             screenshotFormat="image/jpeg"
             className="w-full h-full object-cover"
-            videoConstraints={{ facingMode: "user" }}
+            videoConstraints={{ facingMode }}
           />
+
+          <button
+            onClick={() => setFacingMode((m) => (m === "user" ? "environment" : "user"))}
+            className="absolute top-8 left-8 text-white bg-black/50 p-3 rounded-full hover:bg-black/70 transition-colors border border-white/20 z-10"
+            title="Switch Camera"
+          >
+            <SwitchCamera size={20} />
+          </button>
 
           {/* 3 Second Countdown Overlay */}
           {countdown !== null && (

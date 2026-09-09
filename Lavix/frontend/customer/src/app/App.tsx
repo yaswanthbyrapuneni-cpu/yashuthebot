@@ -13,7 +13,6 @@ import { AdminPage } from "./pages/AdminPage";
 import { GarmentDetailsPage } from "./pages/GarmentDetailsPage";
 import SecurityMonitor from "./components/SecurityMonitor";
 import { SecurityBlackScreen } from "./components/SecurityBlackScreen";
-import { IdleDetector } from "./components/IdleDetector";
 import { TryOnActivityProvider } from "./context/TryOnActivityContext";
 
 export default function App() {
@@ -32,8 +31,7 @@ export default function App() {
         isActive={true}
         onSecurityStateChange={handleSecurityStateChange}
       />
-      <IdleDetector />
-      
+
       {securityMonitoring && (
         <SecurityBlackScreen
           isManualOverride={isManualOverride}

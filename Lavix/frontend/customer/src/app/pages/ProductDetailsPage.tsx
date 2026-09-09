@@ -19,7 +19,8 @@ import {
   ChevronLeft,
   Search,
   Sparkles,
-  ShoppingBag
+  ShoppingBag,
+  SwitchCamera
 } from "lucide-react";
 import Webcam from "react-webcam";
 import { Header } from "../components/Header";
@@ -116,6 +117,10 @@ export function ProductDetailsPage({
   const [isTryOnLoading, setIsTryOnLoading] = useState(false);
   const [tryOnResult, setTryOnResult] = useState<string | null>(null);
   const [isCameraActive, setIsCameraActive] = useState(false);
+  // WhatsApp-style flip: front by default, one tap swaps to the rear camera
+  // (useful on phones/tablets — kiosks only ever have the one front camera,
+  // so the button is harmless there and simply has nothing to switch to).
+  const [facingMode, setFacingMode] = useState<"user" | "environment">("user");
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
   const [isDegradedResult, setIsDegradedResult] = useState(false);
   const [cartAdded, setCartAdded] = useState(false);
@@ -536,6 +541,16 @@ export function ProductDetailsPage({
               </div>
             </div>
             <div className="flex items-center gap-3">
+              {!faceImage && !tryOnResult && !isTryOnLoading && (
+                <button
+                  onClick={() => setFacingMode((m) => (m === "user" ? "environment" : "user"))}
+                  className="p-2.5 bg-black/60 hover:bg-black/90 rounded-full transition-colors text-white border border-white/20 shadow-xl cursor-pointer"
+                  title="Switch Camera"
+                >
+                  <SwitchCamera className="w-5 h-5" />
+                </button>
+              )}
+
               <button
                 onClick={() => (isFullScreen ? exitFullScreen() : enterFullScreen())}
                 className="p-2.5 bg-black/60 hover:bg-black/90 rounded-full transition-colors text-white border border-white/20 shadow-xl cursor-pointer"
@@ -640,7 +655,7 @@ export function ProductDetailsPage({
                     ref={webcamRef}
                     screenshotFormat="image/jpeg"
                     className="w-full h-full object-cover"
-                    videoConstraints={{ facingMode: "user" }}
+                    videoConstraints={{ facingMode }}
                   />
 
                   {/* Live positioning guidance */}
