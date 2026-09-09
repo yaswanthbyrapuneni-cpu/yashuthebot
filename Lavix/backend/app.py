@@ -310,7 +310,11 @@ def try_on():
                             "image": {"bytesBase64Encoded": garment_rgb}
                         }]
                     }],
-                    "parameters": {"sampleCount": 1}
+                    # Without personGeneration, Vertex defaults to its stricter
+                    # "adults only" mode and its safety filter intermittently
+                    # blocks legitimate photos with a 400, silently demoting
+                    # them to the flat local-compositor fallback.
+                    "parameters": {"sampleCount": 1, "personGeneration": "allow_all"}
                 }
 
                 # virtual-try-on-001 routinely takes 15-40s. A short timeout here
