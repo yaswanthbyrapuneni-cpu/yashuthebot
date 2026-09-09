@@ -565,19 +565,14 @@ export function ProductDetailsPage({
           {/* Modal Body: FULL SCREEN VIEW */}
           {tryOnResult ? (
             <div className="w-full h-full relative flex items-center justify-center bg-black p-0 m-0 overflow-hidden">
-              {/* The AI render rarely matches the screen aspect ratio. Fill the
-                  dead space with a blurred copy instead of hard black bars,
-                  while object-contain keeps the subject uncropped. */}
-              <img
-                src={tryOnResult}
-                alt=""
-                aria-hidden="true"
-                className="absolute inset-0 w-full h-full object-cover scale-110 blur-2xl opacity-50 pointer-events-none select-none"
-              />
+              {/* Every kiosk this app runs on has a different screen shape, so
+                  the result always fills it edge-to-edge (object-cover) rather
+                  than being letterboxed to fit — trading a small amount of
+                  cropping at the edges for a guaranteed full-screen fit. */}
               <img
                 src={tryOnResult}
                 alt="Virtual Try-On Render Output"
-                className="relative w-full h-full object-contain"
+                className="w-full h-full object-cover"
               />
 
               {/* Floating Bottom Action Overlay */}
@@ -629,13 +624,7 @@ export function ProductDetailsPage({
 
               {faceImage ? (
                 <div className="w-full h-full relative bg-black flex items-center justify-center">
-                  <img
-                    src={faceImage}
-                    alt=""
-                    aria-hidden="true"
-                    className="absolute inset-0 w-full h-full object-cover scale-110 blur-2xl opacity-50 pointer-events-none select-none"
-                  />
-                  <img src={faceImage} alt="Captured Face" className="relative w-full h-full object-contain" />
+                  <img src={faceImage} alt="Captured Face" className="w-full h-full object-cover" />
                   <button 
                     onClick={() => setFaceImage(null)}
                     className="absolute top-24 right-6 z-30 bg-black/70 text-white p-3 rounded-full hover:bg-black transition-colors border border-white/20 shadow-xl"
