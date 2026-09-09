@@ -970,8 +970,8 @@ function UploadGarmentsView() {
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!name || !imagePreview) {
-      setMessage({ text: "Please enter garment name and select an image", type: "error" });
+    if (!imagePreview) {
+      setMessage({ text: "Please select a garment photo", type: "error" });
       return;
     }
 
@@ -979,7 +979,7 @@ function UploadGarmentsView() {
     setMessage(null);
 
     const res = await uploadGarment({
-      name,
+      name: name.trim() || "Untitled Garment",
       color: color || "Custom",
       category,
       gender,
@@ -1024,10 +1024,12 @@ function UploadGarmentsView() {
 
           <form onSubmit={handleSubmit} className="flex flex-col gap-5">
             <div className="flex flex-col gap-2">
-              <label className="text-sm font-semibold text-gray-700">Garment Name (Auto Categorization Active)</label>
+              <label className="text-sm font-semibold text-gray-700">
+                Garment Name (Auto Categorization Active) <span className="font-normal text-gray-400">(optional)</span>
+              </label>
               <input
                 type="text"
-                placeholder="e.g. Royal Silk Banarasi Saree, Formal Oxford Shirt, Slim Denim Jeans"
+                placeholder="e.g. Royal Silk Banarasi Saree, Formal Oxford Shirt, Slim Denim Jeans — leave blank for 'Untitled Garment'"
                 value={name}
                 onChange={(e) => handleNameChange(e.target.value)}
                 className="w-full px-4 py-2.5 rounded-xl border border-gray-300 focus:outline-none focus:ring-2 focus:ring-indigo-500 text-sm font-medium"
@@ -1077,10 +1079,12 @@ function UploadGarmentsView() {
               </div>
 
               <div className="flex flex-col gap-2">
-                <label className="text-sm font-semibold text-gray-700">Color</label>
+                <label className="text-sm font-semibold text-gray-700">
+                  Color <span className="font-normal text-gray-400">(optional)</span>
+                </label>
                 <input
                   type="text"
-                  placeholder="e.g. Red & Gold, Navy Blue"
+                  placeholder="e.g. Red & Gold, Navy Blue — leave blank for 'Custom'"
                   value={color}
                   onChange={(e) => setColor(e.target.value)}
                   className="w-full px-4 py-2.5 rounded-xl border border-gray-300 focus:outline-none focus:ring-2 focus:ring-indigo-500 text-sm font-medium"
@@ -1088,10 +1092,12 @@ function UploadGarmentsView() {
               </div>
 
               <div className="flex flex-col gap-2">
-                <label className="text-sm font-semibold text-gray-700">Price (Rs.)</label>
+                <label className="text-sm font-semibold text-gray-700">
+                  Price (Rs.) <span className="font-normal text-gray-400">(optional)</span>
+                </label>
                 <input
                   type="number"
-                  placeholder="e.g. 3999"
+                  placeholder="e.g. 3999 — leave blank for 3999"
                   value={price}
                   onChange={(e) => setPrice(e.target.value)}
                   className="w-full px-4 py-2.5 rounded-xl border border-gray-300 focus:outline-none focus:ring-2 focus:ring-indigo-500 text-sm font-medium"
