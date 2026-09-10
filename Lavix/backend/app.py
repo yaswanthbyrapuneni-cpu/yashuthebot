@@ -1036,13 +1036,19 @@ def get_feedback_analytics():
         monthly_trends = {}
         
         import datetime as dt_mod
+        # Kept alongside the trend buckets below so the period-scoped summary
+        # cards (Daily/Weekly/Monthly tabs) can be computed from the exact
+        # same rows as whichever chart is currently showing, instead of
+        # re-deriving date groupings a second time.
+        dated_feedbacks = []
         for f in feedbacks:
             try:
                 dt = dt_mod.datetime.fromisoformat(f['created_at'])
                 date_str = dt.strftime('%Y-%m-%d')
                 year_week = dt.strftime('%Y-W%W')
                 month_str = dt.strftime('%Y-%m')
-                
+                dated_feedbacks.append((f, date_str, year_week, month_str))
+
                 # Daily
                 if date_str not in daily_trends:
                     daily_trends[date_str] = {"submitted": 0, "skipped": 0, "rating_sum": 0, "rating_count": 0}
@@ -1121,6 +1127,40 @@ def get_feedback_analytics():
                 break
             recent_feedbacks.append(f)
 
+        def _summarize(subset):
+            # Same formulas as the all-time summary above, just applied to
+            # whichever rows fall inside one period's window -- so the KPI
+            # cards and the chart underneath them are always describing the
+            # same data, whichever of Daily/Weekly/Monthly is selected.
+            sess = len(subset)
+            submitted = [f for f in subset if f['feedback_status'] == 'submitted']
+            fall = sess
+            rate = round((sess / fall * 100), 1) if fall > 0 else 0.0
+            completion = round((len(submitted) / sess * 100), 1) if sess > 0 else 0.0
+            subset_scores = [f['feedback_score'] for f in submitted if f['feedback_score'] is not None]
+            rating = round(sum(subset_scores) / len(subset_scores), 1) if subset_scores else 0.0
+            return {
+                'footfall': fall,
+                'total_sessions': sess,
+                'try_on_rate': rate,
+                'completion_rate': completion,
+                'avg_rating': rating,
+            }
+
+        # The exact set of buckets each chart currently displays (last 7
+        # days / 4 weeks / 6 months) -- reused here so "Weekly" summarizes
+        # precisely the weeks the weekly chart is showing, not some other
+        # arbitrary window.
+        daily_keys = {d["name"] for d in daily_list}
+        weekly_keys = {w["name"] for w in weekly_list}
+        monthly_keys = {m["name"] for m in monthly_list}
+
+        period_summary = {
+            'daily': _summarize([f for f, d, w, m in dated_feedbacks if d in daily_keys]),
+            'weekly': _summarize([f for f, d, w, m in dated_feedbacks if w in weekly_keys]),
+            'monthly': _summarize([f for f, d, w, m in dated_feedbacks if m in monthly_keys]),
+        }
+
         return jsonify({
             'success': True,
             'summary': {
@@ -1135,6 +1175,7 @@ def get_feedback_analytics():
                 'avg_session_length': f"{(75 + (total_sessions * 13) % 50) // 60}m {(75 + (total_sessions * 13) % 50) % 60}s" if total_sessions > 0 else "0s",
                 'session_engagement': "High engagement" if (75 + (total_sessions * 13) % 50) >= 90 else "Medium engagement" if total_sessions > 0 else "No sessions yet"
             },
+            'period_summary': period_summary,
             'trends': {
                 'daily': daily_list,
                 'weekly': weekly_list,

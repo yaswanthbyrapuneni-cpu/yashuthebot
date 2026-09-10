@@ -677,6 +677,12 @@ function AnalyticsView() {
     ? feedbackAnalytics.trends[timeRange]
     : [];
 
+  // Footfall/rate/rating cards below scope to whichever tab is selected, so
+  // they always describe the same window as the chart under them, not the
+  // all-time totals in `summary`. Falls back to `summary` itself only if the
+  // backend response predates period_summary existing.
+  const periodSummary = feedbackAnalytics?.period_summary?.[timeRange] || summary;
+
   const recentFeedback = feedbackAnalytics?.recent || [];
 
   const emojiLabels: Record<string, string> = {
@@ -709,13 +715,13 @@ function AnalyticsView() {
       <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
         <div className="bg-white p-5 rounded-2xl border border-gray-200 shadow-sm flex flex-col gap-1">
           <span className="text-xs text-gray-400 font-semibold uppercase">Total Footfall</span>
-          <span className="text-2xl font-bold text-gray-900">{summary.footfall !== undefined ? summary.footfall.toLocaleString() : "0"} Visitors</span>
-          <span className="text-xs text-emerald-600 font-semibold">{summary.total_sessions > 0 ? "+18.4% growth" : "0% growth"}</span>
+          <span className="text-2xl font-bold text-gray-900">{periodSummary.footfall !== undefined ? periodSummary.footfall.toLocaleString() : "0"} Visitors</span>
+          <span className="text-xs text-emerald-600 font-semibold">{periodSummary.total_sessions > 0 ? "+18.4% growth" : "0% growth"}</span>
         </div>
         <div className="bg-white p-5 rounded-2xl border border-gray-200 shadow-sm flex flex-col gap-1">
           <span className="text-xs text-gray-400 font-semibold uppercase">Try-On Session Rate</span>
-          <span className="text-2xl font-bold text-gray-900">{summary.try_on_rate !== undefined ? summary.try_on_rate : "0"}%</span>
-          <span className="text-xs text-indigo-600 font-semibold">{summary.total_sessions !== undefined ? summary.total_sessions.toLocaleString() : "0"} total sessions</span>
+          <span className="text-2xl font-bold text-gray-900">{periodSummary.try_on_rate !== undefined ? periodSummary.try_on_rate : "0"}%</span>
+          <span className="text-xs text-indigo-600 font-semibold">{periodSummary.total_sessions !== undefined ? periodSummary.total_sessions.toLocaleString() : "0"} total sessions</span>
         </div>
         <div className="bg-white p-5 rounded-2xl border border-gray-200 shadow-sm flex flex-col gap-1">
           <span className="text-xs text-gray-400 font-semibold uppercase">Avg Session Length</span>
@@ -724,8 +730,8 @@ function AnalyticsView() {
         </div>
         <div className="bg-white p-5 rounded-2xl border border-gray-200 shadow-sm flex flex-col gap-1">
           <span className="text-xs text-gray-400 font-semibold uppercase">Customer Rating (CSAT)</span>
-          <span className="text-2xl font-bold text-amber-500 flex items-center gap-1">⭐ {summary.avg_rating !== undefined ? summary.avg_rating : "0.0"} / 5.0</span>
-          <span className="text-xs text-gray-500 font-medium">{summary.completion_rate !== undefined ? summary.completion_rate : "0"}% Completion Rate</span>
+          <span className="text-2xl font-bold text-amber-500 flex items-center gap-1">⭐ {periodSummary.avg_rating !== undefined ? periodSummary.avg_rating : "0.0"} / 5.0</span>
+          <span className="text-xs text-gray-500 font-medium">{periodSummary.completion_rate !== undefined ? periodSummary.completion_rate : "0"}% Completion Rate</span>
         </div>
       </div>
 
