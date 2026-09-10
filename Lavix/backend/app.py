@@ -870,6 +870,27 @@ def save_feedback(feedback_list):
         logger.error(f"Failed to save feedback: {e}")
         return False
 
+def load_feedback_records():
+    """
+    Supabase is the source of truth for feedback -- mirrors get_garments()'s
+    own Supabase-first, local-fallback pattern. The local JSON file lives in
+    the backend container's writable layer with no persistent volume, so it
+    does not survive a container rebuild; Supabase does. Row shape matches
+    the local file's exactly (same column names), so every caller downstream
+    of this needs no changes.
+    """
+    if _supabase_connected:
+        try:
+            url = f"{SUPABASE_URL}/rest/v1/feedback?select=*&order=id.asc"
+            resp = requests.get(url, headers=get_supabase_headers(), timeout=10)
+            if resp.status_code == 200:
+                return resp.json()
+            logger.warning(f"Supabase feedback read failed ({resp.status_code}), falling back to local")
+        except Exception as e:
+            logger.warning(f"Supabase feedback read failed: {e}, falling back to local")
+    return load_feedback()
+
+
 @app.route('/api/feedback', methods=['POST'])
 def add_feedback():
     try:
@@ -884,38 +905,44 @@ def add_feedback():
         if not session_id:
             return jsonify({'success': False, 'error': 'session_id is required'}), 400
 
-        feedbacks = load_feedback()
-
-        # Prevent duplicate feedback for the same session_id
-        if any(f['session_id'] == session_id for f in feedbacks):
-            return jsonify({'success': False, 'error': 'Feedback already submitted for this session'}), 400
-
-        import datetime as dt_mod
-        feedback_id = len(feedbacks) + 1
-        new_feedback = {
-            "id": feedback_id,
+        record = {
             "session_id": session_id,
             "gender": gender,
             "selected_garment": selected_garment,
             "feedback_emoji": feedback_emoji,
             "feedback_score": feedback_score,
             "feedback_status": feedback_status,
-            "created_at": dt_mod.datetime.now().isoformat()
         }
 
-        feedbacks.append(new_feedback)
-        save_feedback(feedbacks)
-
-        # Mirror to Supabase if connected
+        # Supabase first: its own UNIQUE constraint on session_id is what
+        # actually prevents duplicates, not an application-level check
+        # against a local file a rebuilt container may not remember.
         if _supabase_connected:
             try:
                 db_url = f"{SUPABASE_URL}/rest/v1/feedback"
-                db_resp = requests.post(db_url, headers=get_supabase_headers(), json=new_feedback, timeout=5)
-                logger.info(f"Supabase feedback sync response: {db_resp.status_code}")
+                db_headers = get_supabase_headers()
+                db_headers["Prefer"] = "return=representation"
+                resp = requests.post(db_url, headers=db_headers, json=record, timeout=10)
+                if resp.status_code in (200, 201):
+                    rows = resp.json()
+                    return jsonify({'success': True, 'feedback': rows[0] if rows else record}), 201
+                if resp.status_code == 409 or "duplicate key" in resp.text.lower():
+                    return jsonify({'success': False, 'error': 'Feedback already submitted for this session'}), 400
+                logger.warning(f"Supabase feedback insert failed ({resp.status_code}): {resp.text[:300]}; falling back to local storage")
             except Exception as e:
-                logger.warning(f"Supabase feedback sync failed (non-blocking): {e}")
+                logger.warning(f"Supabase feedback insert failed: {e}; falling back to local storage")
 
-        return jsonify({'success': True, 'feedback': new_feedback}), 201
+        # Local fallback -- Supabase unreachable or not configured
+        feedbacks = load_feedback()
+        if any(f['session_id'] == session_id for f in feedbacks):
+            return jsonify({'success': False, 'error': 'Feedback already submitted for this session'}), 400
+
+        import datetime as dt_mod
+        record["id"] = len(feedbacks) + 1
+        record["created_at"] = dt_mod.datetime.now().isoformat()
+        feedbacks.append(record)
+        save_feedback(feedbacks)
+        return jsonify({'success': True, 'feedback': record}), 201
     except Exception as e:
         logger.error(f"Error saving feedback: {e}")
         return jsonify({'success': False, 'error': str(e)}), 500
@@ -923,8 +950,8 @@ def add_feedback():
 @app.route('/api/feedback/analytics', methods=['GET'])
 def get_feedback_analytics():
     try:
-        feedbacks = load_feedback()
-        
+        feedbacks = load_feedback_records()
+
         total_sessions = len(feedbacks)
         submitted_feedbacks = [f for f in feedbacks if f['feedback_status'] == 'submitted']
         skipped_feedbacks = [f for f in feedbacks if f['feedback_status'] == 'skipped']
