@@ -1522,12 +1522,20 @@ def book_demo():
         return jsonify({'success': False, 'error': str(e)}), 500
 
 
-# Run at module level so gunicorn picks it up on import
-check_supabase_connection()
+# Run at module level so gunicorn picks it up on import, but off-thread: the
+# very first outbound network call after a fresh container start has been
+# observed hanging well past its own 5s requests timeout (likely networking/
+# DNS not fully settled yet), which -- run synchronously here -- blocked the
+# worker from serving anything, including /health, until gunicorn's 150s
+# worker timeout killed it. A background thread means the worker can start
+# accepting requests immediately regardless of how long this takes.
+threading.Thread(target=check_supabase_connection, daemon=True).start()
 
-# Build the background-removal session during worker startup rather than inside
-# the first customer's try-on request.
-get_rembg_session()
+# Same reasoning: building the rembg session the first time costs real time
+# (~130s cold), and get_rembg_session() is already lock-protected and
+# idempotent, so pre-warming it here is a pure optimization -- if a request
+# needs it before this finishes, it just builds it inline as before.
+threading.Thread(target=get_rembg_session, daemon=True).start()
 
 if __name__ == '__main__':
     port = int(os.environ.get('PORT', 5000))
