@@ -4,7 +4,6 @@ import {
   BarChart2,
   Upload,
   Video,
-  Settings,
   LogOut,
   Camera,
   Activity,
@@ -28,7 +27,9 @@ import {
   Send,
   AlertCircle,
   Eye,
-  EyeOff
+  EyeOff,
+  Menu,
+  X
 } from "lucide-react";
 import { Link } from "react-router-dom";
 import { ResponsiveContainer, AreaChart, Area, XAxis, YAxis, Tooltip, BarChart, Bar, PieChart, Pie, Cell } from "recharts";
@@ -47,7 +48,7 @@ import imgSaree4 from "../../assets/saree_model_4.png";
 import { supabase } from "../utils/supabaseClient";
 import { SecurityDetector } from "../utils/motion-detection";
 
-type TabType = "home" | "analytics" | "upload" | "security" | "support" | "settings";
+type TabType = "home" | "analytics" | "upload" | "security" | "support";
 
 const analyticsData = [
   { name: "Mon", tryOns: 145, visitors: 420 },
@@ -441,61 +442,101 @@ export function AdminPage() {
   return (
     <div className="bg-[#f3f5f9] flex items-start relative size-full min-h-screen font-sans overflow-hidden">
       <Sidebar activeTab={activeTab} setActiveTab={setActiveTab} onLogout={handleLogout} loggedInUser={loggedInUser} />
-      <div className="flex-1 h-screen overflow-y-auto p-[16px] md:p-[24px]">
+      <div className="flex-1 w-full h-screen overflow-y-auto overflow-x-hidden p-[16px] pt-[72px] md:p-[24px]">
         {activeTab === "home" && <HomeView setActiveTab={setActiveTab} />}
         {activeTab === "analytics" && <AnalyticsView />}
         {activeTab === "upload" && <UploadGarmentsView />}
         {activeTab === "security" && <SecurityView />}
         {activeTab === "support" && <TechnicalSupportView />}
-        {activeTab === "settings" && <SettingsView />}
       </div>
     </div>
   );
 }
 
 function Sidebar({ activeTab, setActiveTab, onLogout, loggedInUser }: { activeTab: TabType; setActiveTab: (tab: TabType) => void; onLogout: () => void; loggedInUser: string }) {
+  const [mobileOpen, setMobileOpen] = useState(false);
+
+  // Same tab switch on mobile also closes the drawer, so the panel doesn't
+  // sit open over the newly-selected view.
+  const handleNav = (tab: TabType) => {
+    setActiveTab(tab);
+    setMobileOpen(false);
+  };
+
   return (
-    <div className="bg-white h-screen sticky top-0 flex flex-col justify-between shrink-0 w-[250px] border-r border-[#e8e8e8] shadow-sm z-20">
-      <div className="flex flex-col gap-[24px] pt-[28px] w-full">
-        {/* Logo & Store Link */}
-        <div className="pl-[24px] pr-[12px] w-full flex flex-col gap-1">
-          <p className="font-bold text-[18px] text-gray-900 tracking-tight flex items-center gap-2">
-            <ShoppingBag className="w-5 h-5 text-indigo-600" />
-            Lavix Hub
-          </p>
-          <span className="text-[11px] font-medium text-emerald-700 bg-emerald-50 border border-emerald-200 px-2.5 py-0.5 rounded-full w-fit">
-            Retailer Portal
-          </span>
+    <>
+      {/* Mobile-only toggle — the sidebar itself is off-canvas by default
+          below md:, so there has to be something on screen to open it. */}
+      <button
+        onClick={() => setMobileOpen(true)}
+        className="md:hidden fixed top-4 left-4 z-40 p-2.5 bg-white rounded-xl border border-[#e8e8e8] shadow-md text-gray-700"
+        title="Open menu"
+      >
+        <Menu className="w-5 h-5" />
+      </button>
+
+      {/* Backdrop, mobile only, only while the drawer is open */}
+      {mobileOpen && (
+        <div
+          onClick={() => setMobileOpen(false)}
+          className="md:hidden fixed inset-0 bg-black/40 z-30"
+        />
+      )}
+
+      <div
+        className={`bg-white h-screen fixed md:sticky top-0 left-0 flex flex-col justify-between shrink-0 w-[250px] border-r border-[#e8e8e8] shadow-sm z-40 transition-transform duration-300 ${
+          mobileOpen ? "translate-x-0" : "-translate-x-full"
+        } md:translate-x-0`}
+      >
+        <div className="flex flex-col gap-[24px] pt-[28px] w-full">
+          {/* Logo & Store Link */}
+          <div className="pl-[24px] pr-[12px] w-full flex items-center justify-between gap-1">
+            <div className="flex flex-col gap-1">
+              <p className="font-bold text-[18px] text-gray-900 tracking-tight flex items-center gap-2">
+                <ShoppingBag className="w-5 h-5 text-indigo-600" />
+                Lavix Hub
+              </p>
+              <span className="text-[11px] font-medium text-emerald-700 bg-emerald-50 border border-emerald-200 px-2.5 py-0.5 rounded-full w-fit">
+                Retailer Portal
+              </span>
+            </div>
+            <button
+              onClick={() => setMobileOpen(false)}
+              className="md:hidden p-1.5 text-gray-400 hover:bg-gray-100 rounded-md"
+              title="Close menu"
+            >
+              <X className="w-5 h-5" />
+            </button>
+          </div>
+
+          {/* Navigation */}
+          <div className="flex flex-col gap-[4px] px-[16px] w-full">
+            <NavItem icon={<Home className="w-5 h-5" />} label="Dashboard Overview" active={activeTab === "home"} onClick={() => handleNav("home")} />
+            <NavItem icon={<BarChart2 className="w-5 h-5" />} label="Retail Analytics" active={activeTab === "analytics"} onClick={() => handleNav("analytics")} />
+            <NavItem icon={<Upload className="w-5 h-5" />} label="Catalogue Manager" active={activeTab === "upload"} onClick={() => handleNav("upload")} />
+            <NavItem icon={<Video className="w-5 h-5" />} label="CCTV Surveillance" active={activeTab === "security"} onClick={() => handleNav("security")} />
+            <NavItem icon={<LifeBuoy className="w-5 h-5" />} label="Tech Support" active={activeTab === "support"} onClick={() => handleNav("support")} />
+          </div>
         </div>
 
-        {/* Navigation */}
-        <div className="flex flex-col gap-[4px] px-[16px] w-full">
-          <NavItem icon={<Home className="w-5 h-5" />} label="Dashboard Overview" active={activeTab === "home"} onClick={() => setActiveTab("home")} />
-          <NavItem icon={<BarChart2 className="w-5 h-5" />} label="Retail Analytics" active={activeTab === "analytics"} onClick={() => setActiveTab("analytics")} />
-          <NavItem icon={<Upload className="w-5 h-5" />} label="Catalogue Manager" active={activeTab === "upload"} onClick={() => setActiveTab("upload")} />
-          <NavItem icon={<Video className="w-5 h-5" />} label="CCTV Surveillance" active={activeTab === "security"} onClick={() => setActiveTab("security")} />
-          <NavItem icon={<LifeBuoy className="w-5 h-5" />} label="Tech Support" active={activeTab === "support"} onClick={() => setActiveTab("support")} />
+        <div className="flex flex-col gap-[16px] pb-[28px] px-[16px] w-full">
+          <Link to="/home" className="flex items-center gap-[12px] px-[12px] py-[10px] rounded-[10px] w-full text-indigo-600 bg-indigo-50/70 hover:bg-indigo-100 font-semibold text-[14px] transition-colors border border-indigo-100">
+            <ArrowLeft className="w-4 h-4" />
+            <span>Customer Storefront</span>
+          </Link>
+
+          {/* User Account */}
+          <div className="flex items-center justify-between pl-[4px] pt-[16px] border-t border-[#eaecf0] w-full">
+            <p className="font-semibold text-[#344054] text-[14px] truncate flex-1">
+              {loggedInUser.charAt(0).toUpperCase() + loggedInUser.slice(1)}
+            </p>
+            <button onClick={onLogout} className="p-2 text-[#475467] hover:bg-gray-100 rounded-md transition-colors shrink-0 cursor-pointer" title="Logout">
+              <LogOut className="w-4 h-4" />
+            </button>
+          </div>
         </div>
       </div>
-
-      <div className="flex flex-col gap-[16px] pb-[28px] px-[16px] w-full">
-        <Link to="/home" className="flex items-center gap-[12px] px-[12px] py-[10px] rounded-[10px] w-full text-indigo-600 bg-indigo-50/70 hover:bg-indigo-100 font-semibold text-[14px] transition-colors border border-indigo-100">
-          <ArrowLeft className="w-4 h-4" />
-          <span>Customer Storefront</span>
-        </Link>
-        <NavItem icon={<Settings className="w-5 h-5" />} label="System Settings" active={activeTab === "settings"} onClick={() => setActiveTab("settings")} />
-
-        {/* User Account */}
-        <div className="flex items-center justify-between pl-[4px] pt-[16px] border-t border-[#eaecf0] w-full">
-          <p className="font-semibold text-[#344054] text-[14px] truncate flex-1">
-            {loggedInUser.charAt(0).toUpperCase() + loggedInUser.slice(1)}
-          </p>
-          <button onClick={onLogout} className="p-2 text-[#475467] hover:bg-gray-100 rounded-md transition-colors shrink-0 cursor-pointer" title="Logout">
-            <LogOut className="w-4 h-4" />
-          </button>
-        </div>
-      </div>
-    </div>
+    </>
   );
 }
 
@@ -531,16 +572,16 @@ function HomeView({ setActiveTab }: { setActiveTab: (tab: TabType) => void }) {
 
   return (
     <div className="max-w-[1100px] mx-auto mt-[8px] flex flex-col gap-6">
-      <div className="flex justify-between items-center bg-white p-6 rounded-2xl border border-gray-200 shadow-sm">
+      <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 bg-white p-6 rounded-2xl border border-gray-200 shadow-sm">
         <div>
           <h1 className="font-bold text-gray-900 text-[26px]">Lavix Command Center</h1>
           <p className="text-gray-500 text-[14px] mt-1">Real-time control over store analytics, product catalog, CCTV feeds, and Virtual Mirror sessions.</p>
         </div>
-        <div className="flex gap-3">
-          <button onClick={() => setActiveTab("analytics")} className="flex items-center gap-2 bg-indigo-600 text-white px-4 py-2.5 rounded-xl font-medium text-sm hover:bg-indigo-700 transition-all shadow-md">
+        <div className="flex flex-col sm:flex-row gap-3">
+          <button onClick={() => setActiveTab("analytics")} className="flex items-center justify-center gap-2 bg-indigo-600 text-white px-4 py-2.5 rounded-xl font-medium text-sm hover:bg-indigo-700 transition-all shadow-md">
             <BarChart2 className="w-4 h-4" /> Retail Analytics
           </button>
-          <button onClick={() => setActiveTab("upload")} className="flex items-center gap-2 bg-gray-900 text-white px-4 py-2.5 rounded-xl font-medium text-sm hover:bg-black transition-all shadow-md">
+          <button onClick={() => setActiveTab("upload")} className="flex items-center justify-center gap-2 bg-gray-900 text-white px-4 py-2.5 rounded-xl font-medium text-sm hover:bg-black transition-all shadow-md">
             <Plus className="w-4 h-4" /> Add Garment
           </button>
         </div>
@@ -2058,26 +2099,6 @@ function TechnicalSupportView() {
             ))}
           </div>
         )}
-      </div>
-    </div>
-  );
-}
-
-function SettingsView() {
-  const API_BASE = (import.meta as any).env?.VITE_BACKEND_URL || "http://localhost:5000";
-  return (
-    <div className="max-w-[720px] mx-auto mt-[8px] flex flex-col gap-6">
-      <div>
-        <h1 className="font-bold text-gray-900 text-[26px]">System & Mirror Settings</h1>
-        <p className="text-gray-500 text-[14px]">Configure store alerts, API integration, and security controls.</p>
-      </div>
-
-      <div className="bg-white p-6 rounded-2xl border border-gray-200 shadow-sm flex flex-col gap-4">
-        <h3 className="font-semibold text-gray-800 text-base">Backend & AI Endpoint</h3>
-        <div className="flex items-center justify-between p-3 bg-gray-50 rounded-xl border border-gray-200 text-sm">
-          <span className="font-medium text-gray-600">Flask Server URL</span>
-          <span className="font-mono text-indigo-600 bg-indigo-50 px-3 py-1 rounded-lg">{API_BASE}</span>
-        </div>
       </div>
     </div>
   );
