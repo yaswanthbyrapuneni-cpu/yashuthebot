@@ -29,7 +29,8 @@ import FeedbackModal from "../components/FeedbackModal";
 import { convertUrlToBase64, requestVirtualTryOn, PRODUCT_CATEGORIES } from "../services/api";
 import { useTryOnActivity } from "../context/TryOnActivityContext";
 import { loadDetector, runDetection } from "../detectors/DetectorManager";
-import { evaluateFraming, FramingHint } from "../utils/framing";
+import { evaluateFraming, sameFramingHint, FramingHint } from "../utils/framing";
+import { createAutoCaptureTracker } from "../utils/autoCapture";
 
 export interface ColorOption {
   name: string;
@@ -207,11 +208,17 @@ export function ProductDetailsPage({
   }, [isTryOnModalOpen, setTryOnActive]);
 
   const [modalCameraCountdown, setModalCameraCountdown] = useState<number | null>(null);
+  // The framing loop reads the countdown through a ref so it can keep running
+  // (and notice the customer walking away mid-countdown) instead of being torn
+  // down and restarted every time the countdown ticks.
+  const countdownRef = useRef<number | null>(null);
+  countdownRef.current = modalCameraCountdown;
+  const autoCaptureRef = useRef(createAutoCaptureTracker());
 
-  // Runs while the live webcam preview is showing (not once a photo is
-  // captured or a countdown is underway) and updates framingHint every frame.
+  // Runs while the live webcam preview is showing: updates framingHint and
+  // drives fully automatic capture (see utils/autoCapture.ts for the rules).
   useEffect(() => {
-    const active = isTryOnModalOpen && isCameraActive && !faceImage && modalCameraCountdown === null;
+    const active = isTryOnModalOpen && isCameraActive && !faceImage;
     if (!active) {
       cancelAnimationFrame(framingRafRef.current);
       setFramingHint(null);
@@ -219,21 +226,41 @@ export function ProductDetailsPage({
     }
 
     let cancelled = false;
+    // Restarts on a camera switch too, so a countdown begun on the old stream
+    // (whose frames are about to stop) never carries over to the new one.
+    autoCaptureRef.current.reset();
+    setModalCameraCountdown(null);
 
     loadDetector("face")
       .then(() => {
         if (cancelled) return;
         const tick = () => {
           const video = webcamRef.current?.video;
+          // A stream that isn't delivering frames yet (camera switching,
+          // permission pending) must read as "not ready" -- never keep the
+          // last good hint alive, or a countdown starts on a dead camera.
+          let hint: FramingHint | null = null;
           if (video && video.readyState >= 2) {
             try {
               const result = runDetection("face", video) as any;
-              setFramingHint(evaluateFraming(result?.faceLandmarks?.[0], bodyCoverage));
+              hint = evaluateFraming(result?.faceLandmarks?.[0], bodyCoverage);
             } catch {
-              // A transient detector hiccup shouldn't crash the mirror; try
-              // again next frame.
+              // A transient detector hiccup counts as "not ready" for this
+              // frame only; the tracker tolerates short dropouts.
             }
           }
+          // evaluateFraming returns a new object every frame; only push a
+          // state update (and re-render this whole page) when it changed.
+          setFramingHint((prev) => (sameFramingHint(prev, hint) ? prev : hint));
+
+          const action = autoCaptureRef.current.update(
+            hint?.ready ?? false,
+            performance.now(),
+            countdownRef.current !== null
+          );
+          if (action === "start") setModalCameraCountdown(3);
+          else if (action === "abort") setModalCameraCountdown(null);
+
           framingRafRef.current = requestAnimationFrame(tick);
         };
         tick();
@@ -244,7 +271,7 @@ export function ProductDetailsPage({
       cancelled = true;
       cancelAnimationFrame(framingRafRef.current);
     };
-  }, [isTryOnModalOpen, isCameraActive, faceImage, modalCameraCountdown, bodyCoverage]);
+  }, [isTryOnModalOpen, isCameraActive, faceImage, bodyCoverage, facingMode]);
 
   // Customer Feedback States
   const [isFeedbackOpen, setIsFeedbackOpen] = useState(false);
@@ -311,35 +338,25 @@ export function ProductDetailsPage({
     if (modalCameraCountdown > 0) {
       const timer = setTimeout(() => setModalCameraCountdown(modalCameraCountdown - 1), 1000);
       return () => clearTimeout(timer);
-    } else {
-      if (webcamRef.current) {
-        const imageSrc = webcamRef.current.getScreenshot();
-        if (imageSrc) {
-          setFaceImage(imageSrc);
-          setIsCameraActive(false);
-          setErrorMessage(null);
-          setModalCameraCountdown(null);
-          handleTryOnWithFace(imageSrc);
-        }
-      }
     }
-  }, [modalCameraCountdown]);
 
-  // Fully automatic capture: no button to press at all. As soon as framing
-  // is confirmed good, start the countdown on its own after a brief
-  // stability window. The window matters because a face detector's reading
-  // can flicker frame-to-frame (evaluateFraming returns a new object every
-  // tick even when nothing has changed) -- depending on framingHint.ready
-  // specifically, rather than the framingHint object itself, means this
-  // effect only restarts when "ready" actually flips, not 60 times a
-  // second, so the timer isn't perpetually reset back to zero.
-  const isFramingReady = framingHint?.ready ?? false;
-  const AUTO_CAPTURE_STABLE_MS = 800;
-  useEffect(() => {
-    if (!isFramingReady || modalCameraCountdown !== null || faceImage) return;
-    const timer = setTimeout(() => setModalCameraCountdown(3), AUTO_CAPTURE_STABLE_MS);
-    return () => clearTimeout(timer);
-  }, [isFramingReady, modalCameraCountdown, faceImage]);
+    const imageSrc = webcamRef.current?.getScreenshot();
+    if (imageSrc) {
+      setFaceImage(imageSrc);
+      setIsCameraActive(false);
+      setErrorMessage(null);
+      setModalCameraCountdown(null);
+      handleTryOnWithFace(imageSrc);
+      return;
+    }
+
+    // The camera isn't delivering a frame (e.g. mid camera-switch). Doing
+    // nothing here left the screen stuck on "Capturing..." forever, because
+    // both the framing check and auto-start wait for the countdown to be
+    // null. Drop back so the next good hold can arm it again.
+    const retry = setTimeout(() => setModalCameraCountdown(null), 400);
+    return () => clearTimeout(retry);
+  }, [modalCameraCountdown]);
 
   const handleUploadClick = () => {
     if (fileInputRef.current) {

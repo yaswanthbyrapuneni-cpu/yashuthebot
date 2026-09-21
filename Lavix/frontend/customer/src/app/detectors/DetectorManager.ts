@@ -3,7 +3,8 @@ import {
   FilesetResolver,
 } from "@mediapipe/tasks-vision";
 
-let faceLandmarker: FaceLandmarker;
+let faceLandmarker: FaceLandmarker | undefined;
+let faceLoadPromise: Promise<void> | null = null;
 let vision: any = null;
 
 async function initializeVisionResolver() {
@@ -14,19 +15,33 @@ async function initializeVisionResolver() {
   }
 }
 
-export async function loadDetector(type: "face") {
-  await initializeVisionResolver();
-  if (type === "face" && !faceLandmarker) {
-    faceLandmarker = await FaceLandmarker.createFromOptions(vision, {
-      baseOptions: {
-        modelAssetPath:
-          "https://storage.googleapis.com/mediapipe-models/face_landmarker/face_landmarker/float16/1/face_landmarker.task",
-        delegate: "GPU",
-      },
-      runningMode: "VIDEO",
-      numFaces: 1,
+// IdleDetector, SecurityMonitor and the try-on mirror can all call this at
+// the same moment. Checking `!faceLandmarker` alone let each of them start
+// its own createFromOptions before the first finished, building several GPU
+// landmarkers on a kiosk that can barely afford one. Sharing the in-flight
+// promise makes them wait on the same load; it is cleared on failure so a
+// transient error (network blip fetching the model) can be retried.
+export function loadDetector(type: "face"): Promise<void> {
+  if (type !== "face") return Promise.resolve();
+  if (faceLandmarker) return Promise.resolve();
+  if (!faceLoadPromise) {
+    faceLoadPromise = (async () => {
+      await initializeVisionResolver();
+      faceLandmarker = await FaceLandmarker.createFromOptions(vision, {
+        baseOptions: {
+          modelAssetPath:
+            "https://storage.googleapis.com/mediapipe-models/face_landmarker/face_landmarker/float16/1/face_landmarker.task",
+          delegate: "GPU",
+        },
+        runningMode: "VIDEO",
+        numFaces: 1,
+      });
+    })().catch((err) => {
+      faceLoadPromise = null;
+      throw err;
     });
   }
+  return faceLoadPromise;
 }
 
 export function runDetection(type: "face", video: HTMLVideoElement) {

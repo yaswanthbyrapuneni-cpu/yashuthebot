@@ -38,6 +38,12 @@ const FACE_TOO_FAR = 0.045;
 const CENTRE_MIN = 0.30;
 const CENTRE_MAX = 0.70;
 
+export function sameFramingHint(a: FramingHint | null, b: FramingHint | null): boolean {
+  if (a === b) return true;
+  if (!a || !b) return false;
+  return a.status === b.status && a.ready === b.ready && a.message === b.message;
+}
+
 export interface Point { x: number; y: number }
 
 export type BodyCoverage = "upper" | "full";
