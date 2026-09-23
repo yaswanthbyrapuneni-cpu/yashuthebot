@@ -204,66 +204,18 @@ def _crop_face_region_if_present(g_img: "Image.Image") -> "Image.Image":
 
 def isolate_garment_b64_for_vertex(garment_b64: str) -> str:
     """
-    Prepares the garment reference photo for Vertex: rembg background
-    removal (with a sanity check -- see below), plus a face-detection-gated
-    crop (see _crop_face_region_if_present) instead of the 3D Mannequin
-    cutout's fixed-percentage crop. Garment catalog photos routinely show a
-    model wearing the item with their face fully visible; Vertex's
-    virtual-try-on model has been observed leaking that face into the
-    output as a floating artifact when given an uncropped reference photo
-    -- but real admin uploads vary hugely in framing, and many are already
-    tight torso-only crops with no face at all, which a blind fixed-
-    percentage crop would butcher. Falls back to the original image, only
-    color-normalized, if isolation fails for any reason -- a messier
-    reference is still better than no result at all.
-
-    rembg sanity check: confirmed against real catalogue photos that rembg
-    can catastrophically over-remove busy/reflective saree silk (gold
-    brocade, dense metallic thread) -- not a minor artifact, entire garments
-    came back as a near-blank white image with faint ghost traces, which
-    would leave Vertex with almost nothing to work from (this is exactly
-    what garment_1789041187.jpeg does, and it produced a plain generic
-    white garment instead of the actual saree in a live customer test).
-    rembg works fine on ordinary model-wearing-garment photos (its actual
-    intended case), so rather than dropping it everywhere, only trust its
-    output when a reasonable share of the frame actually survived as solid
-    (mostly opaque) foreground; discard and use the untouched original
-    otherwise. A low alpha threshold (e.g. >30) is not enough on its own --
-    a failed removal can still leave a large area of faint, near-transparent
-    ghost pixels (alpha ~30-60) that pass a low bar without representing
-    real surviving fabric, so this checks the fraction of pixels that are
-    solidly opaque (>128) instead. Calibrated against real catalog photos:
-    good removals kept 23-75% of pixels solidly opaque, failed ones kept
-    under 3%.
+    Deliberately NOT isolating anything right now -- rembg background removal
+    and the face-crop were both tried here (see git history: a19ae3e /
+    5744fbf) and each fixed a real, confirmed bug (rembg erasing busy saree
+    silk; a false-positive face crop on embroidery patterns). But isolation
+    was only ever validated on a handful of reference photos and against the
+    intermediate isolated-garment image, never the actual end-to-end Vertex
+    render across a real spread of the catalog -- and there are now separate
+    reports of bad saree output that haven't been root-caused yet. Pulled
+    back out to a plain pass-through so isolation is fully out of the
+    picture while that gets investigated properly, rather than guessing.
     """
-    try:
-        img_bytes = base64.b64decode(garment_b64)
-        img = _open_image_exif_safe(img_bytes)
-        img_rgba = img.convert("RGBA")
-
-        bg_removed = _rembg_remove_background(img)
-        alpha = np.array(bg_removed.split()[-1])
-        surviving_fraction = float(np.count_nonzero(alpha > 128)) / alpha.size
-        if surviving_fraction < 0.10:
-            logger.warning(
-                f"rembg kept only {surviving_fraction:.0%} of the frame as foreground -- "
-                "treating as a failed removal and using the original background instead."
-            )
-            base_img = img_rgba
-        else:
-            base_img = bg_removed
-
-        isolated = _crop_face_region_if_present(base_img)
-        # Vertex expects a normal product photo, not a transparent cutout --
-        # flatten onto white, matching convert_to_clean_rgb_b64's convention.
-        background = Image.new("RGB", isolated.size, (255, 255, 255))
-        background.paste(isolated, mask=isolated.split()[-1])
-        buffered = io.BytesIO()
-        background.save(buffered, format="JPEG", quality=95)
-        return base64.b64encode(buffered.getvalue()).decode("utf-8")
-    except Exception as e:
-        logger.warning(f"Garment isolation for Vertex failed, using original image instead: {e}")
-        return convert_to_clean_rgb_b64(garment_b64)
+    return convert_to_clean_rgb_b64(garment_b64)
 
 
 def process_local_tryon(person_b64: str, garments_b64: list) -> str:
