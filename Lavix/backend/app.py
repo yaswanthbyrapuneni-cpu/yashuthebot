@@ -13,7 +13,7 @@ from pathlib import Path
 import io
 import base64
 import numpy as np
-from PIL import Image
+from PIL import Image, ImageOps
 import smtplib
 import secrets
 import time
@@ -206,7 +206,7 @@ def isolate_garment_b64_for_vertex(garment_b64: str) -> str:
     """
     try:
         img_bytes = base64.b64decode(garment_b64)
-        img = Image.open(io.BytesIO(img_bytes))
+        img = _open_image_exif_safe(img_bytes)
         isolated = _crop_face_region_if_present(_rembg_remove_background(img))
         # Vertex expects a normal product photo, not a transparent cutout --
         # flatten onto white, matching convert_to_clean_rgb_b64's convention.
@@ -233,7 +233,7 @@ def process_local_tryon(person_b64: str, garments_b64: list) -> str:
 
         person_b64_clean = extract_clean_b64(person_b64)
         person_bytes = base64.b64decode(person_b64_clean)
-        person_img = Image.open(io.BytesIO(person_bytes)).convert("RGBA")
+        person_img = _open_image_exif_safe(person_bytes).convert("RGBA")
         p_width, p_height = person_img.size
 
         current_img = person_img.copy()
@@ -242,7 +242,7 @@ def process_local_tryon(person_b64: str, garments_b64: list) -> str:
             try:
                 g_b64_clean = extract_clean_b64(g_b64)
                 g_bytes = base64.b64decode(g_b64_clean)
-                g_img = Image.open(io.BytesIO(g_bytes)).convert("RGBA")
+                g_img = _open_image_exif_safe(g_bytes).convert("RGBA")
             except Exception as g_err:
                 # A single unreadable garment must not lose the whole render;
                 # the person image and any other garments are still usable.
@@ -293,10 +293,23 @@ def process_local_tryon(person_b64: str, garments_b64: list) -> str:
         raise RuntimeError(f"Local compositor failed: {e}") from e
 
 
+def _open_image_exif_safe(img_bytes: bytes) -> "Image.Image":
+    """
+    Image.open() alone ignores EXIF orientation -- a phone gallery photo is
+    routinely stored as landscape pixels plus a rotation tag, which every
+    browser respects when displaying it but PIL does not when decoding it.
+    A live webcam capture (getScreenshot() grabs the video element straight
+    to canvas) never carries this tag, so this only bites uploaded photos --
+    which is exactly the "upload looks fine, but the render is wrong" gap.
+    """
+    img = Image.open(io.BytesIO(img_bytes))
+    return ImageOps.exif_transpose(img)
+
+
 def convert_to_clean_rgb_b64(b64_str):
     try:
         img_bytes = base64.b64decode(b64_str)
-        img = Image.open(io.BytesIO(img_bytes))
+        img = _open_image_exif_safe(img_bytes)
         if img.mode in ("RGBA", "LA") or (img.mode == "P" and "transparency" in img.info):
             img = img.convert("RGBA")
             background = Image.new("RGB", img.size, (255, 255, 255))
@@ -945,7 +958,7 @@ def add_garment():
         # the garment itself must still save.
         front_cutout_url = None
         try:
-            front_cutout_img = isolate_garment_image(Image.open(io.BytesIO(file_bytes)))
+            front_cutout_img = isolate_garment_image(_open_image_exif_safe(file_bytes))
             front_cutout_url = _upload_image_bytes(
                 _pil_to_png_bytes(front_cutout_img), f"garment_{timestamp}_front_cutout.png", "image/png"
             )
@@ -961,7 +974,7 @@ def add_garment():
                 back_ext = back_mime.split('/')[-1]
                 back_image_url = _upload_image_bytes(back_bytes, f"garment_{timestamp}_back.{back_ext}", back_mime)
 
-                back_cutout_img = isolate_garment_image(Image.open(io.BytesIO(back_bytes)))
+                back_cutout_img = isolate_garment_image(_open_image_exif_safe(back_bytes))
                 back_cutout_url = _upload_image_bytes(
                     _pil_to_png_bytes(back_cutout_img), f"garment_{timestamp}_back_cutout.png", "image/png"
                 )

@@ -208,6 +208,11 @@ export function ProductDetailsPage({
   }, [isTryOnModalOpen, setTryOnActive]);
 
   const [modalCameraCountdown, setModalCameraCountdown] = useState<number | null>(null);
+  // Auto-capture depends on a GPU face detector that some devices can't run
+  // at all. When that's the case there is no framing hint to ever go "ready"
+  // -- surfaced here so the customer sees a reason instead of a dead camera,
+  // and knows to use the manual "Capture Now" button in the control bar.
+  const [autoCaptureUnavailable, setAutoCaptureUnavailable] = useState(false);
   // The framing loop reads the countdown through a ref so it can keep running
   // (and notice the customer walking away mid-countdown) instead of being torn
   // down and restarted every time the countdown ticks.
@@ -226,10 +231,23 @@ export function ProductDetailsPage({
     }
 
     let cancelled = false;
+    let everGotHint = false;
     // Restarts on a camera switch too, so a countdown begun on the old stream
     // (whose frames are about to stop) never carries over to the new one.
     autoCaptureRef.current.reset();
     setModalCameraCountdown(null);
+    setAutoCaptureUnavailable(false);
+
+    // A GPU delegate can fail per-call rather than at load time -- the
+    // landmarker creates fine but detectForVideo throws (or silently returns
+    // nothing useful) on every single frame, so loadDetector's promise never
+    // rejects and framingHint just never becomes anything, forever. That
+    // reads identically to a load failure from the customer's side, so it
+    // gets the same fallback guidance if not even one reading comes through
+    // in a generous window.
+    const stallTimer = setTimeout(() => {
+      if (!cancelled && !everGotHint) setAutoCaptureUnavailable(true);
+    }, 6000);
 
     loadDetector("face")
       .then(() => {
@@ -249,6 +267,10 @@ export function ProductDetailsPage({
               // frame only; the tracker tolerates short dropouts.
             }
           }
+          if (hint && !everGotHint) {
+            everGotHint = true;
+            setAutoCaptureUnavailable(false);
+          }
           // evaluateFraming returns a new object every frame; only push a
           // state update (and re-render this whole page) when it changed.
           setFramingHint((prev) => (sameFramingHint(prev, hint) ? prev : hint));
@@ -265,10 +287,14 @@ export function ProductDetailsPage({
         };
         tick();
       })
-      .catch((err) => console.error("[Framing] detector load failed:", err));
+      .catch((err) => {
+        console.error("[Framing] detector load failed:", err);
+        if (!cancelled) setAutoCaptureUnavailable(true);
+      });
 
     return () => {
       cancelled = true;
+      clearTimeout(stallTimer);
       cancelAnimationFrame(framingRafRef.current);
     };
   }, [isTryOnModalOpen, isCameraActive, faceImage, bodyCoverage, facingMode]);
@@ -382,6 +408,7 @@ export function ProductDetailsPage({
     if (webcamRef.current) {
       const imageSrc = webcamRef.current.getScreenshot();
       if (imageSrc) {
+        setModalCameraCountdown(null);
         setFaceImage(imageSrc);
         setIsCameraActive(false);
         setErrorMessage(null);
@@ -740,22 +767,29 @@ export function ProductDetailsPage({
                     }}
                   />
 
-                  {/* Live positioning guidance */}
-                  {framingHint && modalCameraCountdown === null && (
+                  {/* Live positioning guidance -- or, if the face detector
+                      couldn't load on this device, a pointer to the manual
+                      button instead of a guidance bubble that will never
+                      appear. */}
+                  {modalCameraCountdown === null && (framingHint || autoCaptureUnavailable) && (
                     <div className="absolute top-28 left-1/2 -translate-x-1/2 z-20 pointer-events-none">
                       <div
                         className={`flex items-center gap-2.5 px-5 py-2.5 rounded-full backdrop-blur-md border shadow-2xl transition-colors duration-300 ${
-                          framingHint.ready
+                          framingHint?.ready
                             ? "bg-emerald-500/90 border-emerald-300/40 text-black"
                             : "bg-black/70 border-white/20 text-white"
                         }`}
                       >
                         <span
                           className={`w-2 h-2 rounded-full shrink-0 ${
-                            framingHint.ready ? "bg-black" : "bg-amber-400 animate-pulse"
+                            framingHint?.ready ? "bg-black" : "bg-amber-400 animate-pulse"
                           }`}
                         />
-                        <span className="text-sm font-semibold whitespace-nowrap">{framingHint.message}</span>
+                        <span className="text-sm font-semibold whitespace-nowrap">
+                          {autoCaptureUnavailable && !framingHint
+                            ? "Auto-capture unavailable — tap Capture Now below"
+                            : framingHint!.message}
+                        </span>
                       </div>
                     </div>
                   )}
@@ -774,10 +808,24 @@ export function ProductDetailsPage({
                     </div>
                   )}
 
-                  {/* Bottom Center Floating Action Control Bar — capture itself is
-                      fully automatic (see the framing-driven effect above), so
-                      the only manual action left here is the upload alternative. */}
+                  {/* Bottom Center Floating Action Control Bar. Capture is
+                      normally fully automatic (the framing-driven effect
+                      above), but that depends on a GPU face detector that
+                      isn't guaranteed to load on every device -- without a
+                      manual way to capture, a customer whose tablet can't
+                      run it would be stuck with no path to a result at all
+                      beyond digging up a photo to upload. This button is
+                      always available as that fallback, countdown or not. */}
                   <div className="absolute bottom-8 left-1/2 -translate-x-1/2 z-40 flex items-center gap-4 bg-black/60 backdrop-blur-xl p-3 px-6 rounded-full border border-white/20 shadow-2xl">
+                    <button
+                      onClick={handleCapture}
+                      className="px-5 py-3 bg-white/10 hover:bg-white/20 text-white rounded-full border border-white/20 backdrop-blur-md shadow-2xl transition-transform active:scale-95 cursor-pointer flex items-center gap-2 text-sm font-semibold"
+                      title="Capture Now"
+                    >
+                      <CameraIcon size={18} />
+                      <span>Capture Now</span>
+                    </button>
+
                     <button
                       onClick={handleUploadClick}
                       className="px-5 py-3 bg-white/10 hover:bg-white/20 text-white rounded-full border border-white/20 backdrop-blur-md shadow-2xl transition-transform active:scale-95 cursor-pointer flex items-center gap-2 text-sm font-semibold"
