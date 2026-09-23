@@ -31,6 +31,7 @@ import { useTryOnActivity } from "../context/TryOnActivityContext";
 import { loadDetector, runDetection } from "../detectors/DetectorManager";
 import { evaluateFraming, sameFramingHint, FramingHint } from "../utils/framing";
 import { createAutoCaptureTracker } from "../utils/autoCapture";
+import { resizeImageFileToDataUrl } from "../utils/imageResize";
 
 export interface ColorOption {
   name: string;
@@ -390,18 +391,30 @@ export function ProductDetailsPage({
     }
   };
 
-  const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+  const handleFileChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
-    if (file) {
-      const reader = new FileReader();
-      reader.onloadend = () => {
-        const uploadedImg = reader.result as string;
-        setFaceImage(uploadedImg);
-        setErrorMessage(null);
-        handleTryOnWithFace(uploadedImg);
-      };
-      reader.readAsDataURL(file);
+    // Clear the input's own value so re-selecting the exact same file (e.g.
+    // after "Retake Photo") fires onChange again -- otherwise the browser
+    // treats it as no change and this handler never runs a second time.
+    e.target.value = "";
+    if (!file) return;
+
+    let uploadedImg: string;
+    try {
+      uploadedImg = await resizeImageFileToDataUrl(file);
+    } catch (err) {
+      console.warn("[Upload] Resize failed, using the original file instead:", err);
+      uploadedImg = await new Promise<string>((resolve, reject) => {
+        const reader = new FileReader();
+        reader.onloadend = () => resolve(reader.result as string);
+        reader.onerror = reject;
+        reader.readAsDataURL(file);
+      });
     }
+
+    setFaceImage(uploadedImg);
+    setErrorMessage(null);
+    handleTryOnWithFace(uploadedImg);
   };
 
   const handleCapture = useCallback(() => {
